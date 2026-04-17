@@ -3,8 +3,7 @@ package com.chaostensor.video_notes_to_wiki.service;
 import com.chaostensor.video_notes_to_wiki.entity.Job;
 import com.chaostensor.video_notes_to_wiki.entity.JobStatus;
 import com.chaostensor.video_notes_to_wiki.repository.JobRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import java.io.IOException;
@@ -35,13 +34,11 @@ public class VideoProcessingService {
                 Map<String, String> videoFiles = findVideoFiles(savedJob.getInputDir());
                 return whisperService.transcribeVideos(videoFiles)
                     .flatMap(transcripts -> {
-                        try {
+
                             savedJob.setTranscriptsJson(objectMapper.writeValueAsString(transcripts));
                             savedJob.setStatus(JobStatus.COMPLETED);
                             return jobRepository.save(savedJob);
-                        } catch (JsonProcessingException e) {
-                            return Mono.error(e);
-                        }
+
                     })
                     .onErrorResume(e -> {
                         savedJob.setStatus(JobStatus.FAILED);

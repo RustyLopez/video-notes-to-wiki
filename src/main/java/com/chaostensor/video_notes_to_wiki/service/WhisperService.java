@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+
+import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -26,7 +28,7 @@ public class WhisperService {
                 .map(entry -> transcribeSingle(entry.getKey(), entry.getValue())
                     .map(transcript -> Map.entry(entry.getKey(), transcript)))
                 .collect(Collectors.toList()),
-            results -> results.stream()
+            results -> Arrays.stream(results)
                 .map(obj -> (Map.Entry<String, String>) obj)
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         );

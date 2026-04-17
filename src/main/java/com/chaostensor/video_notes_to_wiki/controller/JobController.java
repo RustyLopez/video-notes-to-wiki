@@ -4,7 +4,7 @@ import com.chaostensor.video_notes_to_wiki.service.VideoProcessingService;
 import com.chaostensor.video_notes_to_wiki.entity.Job;
 import com.chaostensor.video_notes_to_wiki.entity.JobStatus;
 import com.chaostensor.video_notes_to_wiki.repository.JobRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -44,24 +44,24 @@ public class JobController {
     @GetMapping("/{id}/transcripts")
     public Mono<ResponseEntity<List<String>>> getTranscripts(@PathVariable UUID id) {
         return jobRepository.findById(id)
-            .flatMap(job -> {
+            .<ResponseEntity<List<String>>>flatMap(job -> {
                 if (job.getStatus() != JobStatus.COMPLETED) {
                     return Mono.just(ResponseEntity.badRequest().build());
                 }
                 try {
                     Map<String, String> transcripts = objectMapper.readValue(job.getTranscriptsJson(), Map.class);
-                    return Mono.just(ResponseEntity.ok(transcripts.keySet().stream().toList()));
+                    return Mono.just(ResponseEntity.<List<String>>ok(transcripts.keySet().stream().toList()));
                 } catch (Exception e) {
-                    return Mono.just(ResponseEntity.internalServerError().build());
+                    return Mono.error(e);
                 }
             })
-            .defaultIfEmpty(ResponseEntity.notFound().build());
+            .switchIfEmpty(Mono.defer(() -> Mono.just(ResponseEntity.notFound().build())));
     }
 
     @GetMapping("/{id}/transcripts/{subId}")
     public Mono<ResponseEntity<String>> getTranscript(@PathVariable UUID id, @PathVariable String subId) {
         return jobRepository.findById(id)
-            .flatMap(job -> {
+            .<ResponseEntity<String>>flatMap(job -> {
                 if (job.getStatus() != JobStatus.COMPLETED) {
                     return Mono.just(ResponseEntity.badRequest().build());
                 }
@@ -74,9 +74,9 @@ public class JobController {
                         return Mono.just(ResponseEntity.notFound().build());
                     }
                 } catch (Exception e) {
-                    return Mono.just(ResponseEntity.internalServerError().build());
+                    return Mono.error(e);
                 }
             })
-            .defaultIfEmpty(ResponseEntity.notFound().build());
+                .switchIfEmpty(Mono.defer(() -> Mono.just(ResponseEntity.notFound().build())));
     }
 }
