@@ -1,3 +1,9 @@
 spring:
   application:
     name: video-notes-to-wiki
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/video_notes
+    username: postgres
+    password: password
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
