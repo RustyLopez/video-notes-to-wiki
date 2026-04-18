@@ -1,5 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
+import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.WhisperRequest;
+import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.WhisperResponse;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -17,8 +19,10 @@ public class WhisperService {
     private final WebClient webClient;
 
     public WhisperService(WebClient.Builder builder) {
-        // Assume Whisper API is running at http://localhost:8081/whisper
-        this.webClient = builder.baseUrl("http://localhost:8081/whisper").build();
+        // TODO allow the runner to be configurable as either insanley-fast-whisper, or whisper-x or speaches
+        //   with that latter being currently in its own container but the former two currently sharing a container
+        //   but at different endpoints.
+        this.webClient = builder.baseUrl("http://localhost:8081/insanely-fast-whisper").build();
     }
 
     public Mono<Map<String, String>> transcribeVideos(Map<String, String> filePaths) {
@@ -36,11 +40,14 @@ public class WhisperService {
 
     private Mono<String> transcribeSingle(String fileName, String filePath) {
         return webClient.post()
-            .uri("/transcribe")
-            .contentType(MediaType.MULTIPART_FORM_DATA)
-            .body(BodyInserters.fromMultipartData("file", new FileSystemResource(filePath)))
+            .uri("")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(
+                    WhisperRequest.builder().pathRelativeSharedVolumeMount(filePath).build()
+            )
             .retrieve()
-            .bodyToMono(String.class)
+            .bodyToMono(WhisperResponse.class)
+                .map(WhisperResponse::getJobId)
             .onErrorResume(e -> Mono.just("Error transcribing " + fileName + ": " + e.getMessage()));
     }
 }
