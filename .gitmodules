@@ -1,0 +1,9 @@
+# Whisper wrapper is hosted as an external service, so that we can scale it independently as it is loading the models and not handling end user requests directly.
+# It will need to have the same volume mount as this service.
+# we'll need to do something similar with the kubectl but give that service different resource settings
+# We'll use the non ssh endpoint as we require only read access.
+# git submodule update --init --recursive to load it the first time
+# git submodule update --recursive --remote to get the latest
+[submodule "whisper-wrapper"]
+	path = whisper-wrapper
+	url = https://github.com/RustyLopez/whisper-wrapper.git

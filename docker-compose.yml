@@ -10,7 +10,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-data:/var/lib/postgresql/data
 
   spring-boot-app:
     build: .
@@ -22,10 +22,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/videonotes
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
+    volumes: # TODO make the local dir configurable
+      - ./media-input:./media-input
 
-  insanely-fast-whisper:
-    build: ./insanely-fast-whisper
-    # CLI tool, no ports exposed. Run with docker-compose run insanely-fast-whisper insanely-fast-whisper --file-name /path/to/audio
-
-volumes:
-  postgres_data:
+  # Whisper wrapper is hosted as an external service, so that we can scale it independently as it is loading the models and not handling end user requests directly.
+  # It will need to have the same volume mount as this service.
+  # we'll need to do something similar with the kubectl but give that service different resource settings
+  whisper-wrapper:
+    build: ./whisper-wrapper
+    volumes: # TODO make the local dir configurable
+      - ./media-input:./media-input
