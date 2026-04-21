@@ -2,6 +2,7 @@ package com.chaostensor.video_notes_to_wiki.service;
 
 import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscript;
 import com.chaostensor.video_notes_to_wiki.entity.WikiReadyTranscript;
+import com.chaostensor.video_notes_to_wiki.event.WikiReadyTranscriptEventPublisher;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.WikiReadyTranscriptRepository;
@@ -24,6 +25,7 @@ public class WikiReadyTranscriptService {
     private final WikiReadyTranscriptRepository wikiReadyTranscriptRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final WikiReadyTranscriptEventPublisher wikiReadyTranscriptEventPublisher;
 
     private static final String PROMPT_TEMPLATE = """
             You are creating high-quality, professional wiki documentation.
@@ -56,11 +58,13 @@ public class WikiReadyTranscriptService {
             """;
 
     public WikiReadyTranscriptService(WikiReadyTranscriptRepository wikiReadyTranscriptRepository,
-                                      WebClient.Builder webClientBuilder,
-                                      ObjectMapper objectMapper) {
+                                       WebClient.Builder webClientBuilder,
+                                       ObjectMapper objectMapper,
+                                       WikiReadyTranscriptEventPublisher wikiReadyTranscriptEventPublisher) {
         this.wikiReadyTranscriptRepository = wikiReadyTranscriptRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         this.objectMapper = objectMapper;
+        this.wikiReadyTranscriptEventPublisher = wikiReadyTranscriptEventPublisher;
     }
 
     public Mono<Void> processSimplifiedTranscriptEvent(SimplifiedTranscript simplifiedTranscript) {
@@ -88,7 +92,8 @@ public class WikiReadyTranscriptService {
                 wikiReadyTranscript.setUpdatedAt(LocalDateTime.now());
                 return wikiReadyTranscriptRepository.save(wikiReadyTranscript);
             })
-            .doOnNext(saved -> logger.info("Saved WikiReadyTranscript id: {} for SimplifiedTranscript id: {}", saved.getId(), simplifiedTranscript.getId()))
+            .flatMap(saved -> wikiReadyTranscriptEventPublisher.publish(saved).thenReturn(saved))
+            .doOnNext(saved -> logger.info("Saved and published WikiReadyTranscript id: {} for SimplifiedTranscript id: {}", saved.getId(), simplifiedTranscript.getId()))
             .doOnError(error -> {
                 logger.error("Error processing WikiReadyTranscript for SimplifiedTranscript id: {}", simplifiedTranscript.getId(), error);
                 // Log stack trace
