@@ -3,6 +3,7 @@ package com.chaostensor.video_notes_to_wiki.service;
 import com.chaostensor.video_notes_to_wiki.entity.Job;
 import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscript;
 import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscriptStatus;
+import com.chaostensor.video_notes_to_wiki.event.EventPublisher;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.JobRepository;
@@ -27,6 +28,7 @@ public class SimplifiedTranscriptService {
     private final JobRepository jobRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final EventPublisher<SimplifiedTranscript> eventPublisher;
 
     private static final String PROMPT_TEMPLATE = """
             You are an expert technical writer creating structured documentation from video transcripts.
@@ -56,13 +58,15 @@ public class SimplifiedTranscriptService {
             """;
 
     public SimplifiedTranscriptService(SimplifiedTranscriptRepository simplifiedTranscriptRepository,
-                                       JobRepository jobRepository,
-                                       WebClient.Builder webClientBuilder,
-                                       ObjectMapper objectMapper) {
+                                        JobRepository jobRepository,
+                                        WebClient.Builder webClientBuilder,
+                                        ObjectMapper objectMapper,
+                                        EventPublisher<SimplifiedTranscript> eventPublisher) {
         this.simplifiedTranscriptRepository = simplifiedTranscriptRepository;
         this.jobRepository = jobRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build(); // Assume LLM API at this URL
         this.objectMapper = objectMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     public Mono<SimplifiedTranscript> processSimplifiedTranscript(UUID simplifiedTranscriptId) {
@@ -98,7 +102,8 @@ public class SimplifiedTranscriptService {
                             simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.COMPLETED);
                             simplifiedTranscript.setResult(result);
                             simplifiedTranscript.setUpdatedAt(LocalDateTime.now());
-                            return simplifiedTranscriptRepository.save(simplifiedTranscript);
+                            return simplifiedTranscriptRepository.save(simplifiedTranscript)
+                                .flatMap(saved -> eventPublisher.publish(saved).thenReturn(saved));
                         })
                         .onErrorResume(e -> {
                             simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.FAILED);
