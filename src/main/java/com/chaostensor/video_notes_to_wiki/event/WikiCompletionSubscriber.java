@@ -9,7 +9,7 @@ import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.SimplifiedTranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.repository.WikiReadyTranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.repository.WikiResultRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
