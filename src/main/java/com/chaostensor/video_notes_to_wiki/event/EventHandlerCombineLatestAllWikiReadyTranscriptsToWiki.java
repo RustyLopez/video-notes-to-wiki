@@ -1,10 +1,10 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import com.chaostensor.video_notes_to_wiki.entity.WikiReadyTranscript;
-import com.chaostensor.video_notes_to_wiki.entity.WikiResult;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
+import com.chaostensor.video_notes_to_wiki.entity.Wiki;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.repository.SimplifiedTranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptLogicallyOrganizedRepository;
 import com.chaostensor.video_notes_to_wiki.repository.WikiReadyTranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.repository.WikiRepository;
 import tools.jackson.databind.ObjectMapper;
@@ -24,12 +24,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Component
-public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements EventHandler<WikiReadyTranscript> {
+public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements EventHandler<TranscriptExecutiveSummary> {
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki.class);
 
-    private final EventPublisher<WikiReadyTranscript> wikiReadyTranscriptEventPublisher;
-    private final SimplifiedTranscriptRepository simplifiedTranscriptRepository;
+    private final EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher;
+    private final TranscriptLogicallyOrganizedRepository transcriptLogicallyOrganizedRepository;
     private final WikiReadyTranscriptRepository wikiReadyTranscriptRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -56,15 +56,15 @@ public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements E
             Focus on creating something a new engineer could read and rapidly understand the key decisions, architecture, and current state of the project. Remove duplication across videos. Create clean hierarchy.
             """;
 
-    public EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki(EventPublisher<WikiReadyTranscript> wikiReadyTranscriptEventPublisher,
-                                                                  SimplifiedTranscriptRepository simplifiedTranscriptRepository,
+    public EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki(EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher,
+                                                                  TranscriptLogicallyOrganizedRepository transcriptLogicallyOrganizedRepository,
                                                                   WikiReadyTranscriptRepository wikiReadyTranscriptRepository,
                                                                   WebClient.Builder webClientBuilder,
                                                                   ObjectMapper objectMapper,
                                                                   WikiRepository wikiRepository,
                                                                   WikiResultEventPublisher wikiResultEventPublisher) {
         this.wikiReadyTranscriptEventPublisher = wikiReadyTranscriptEventPublisher;
-        this.simplifiedTranscriptRepository = simplifiedTranscriptRepository;
+        this.transcriptLogicallyOrganizedRepository = transcriptLogicallyOrganizedRepository;
         this.wikiReadyTranscriptRepository = wikiReadyTranscriptRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         this.objectMapper = objectMapper;
@@ -84,7 +84,7 @@ public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements E
         logger.info("Subscribed to WikiReadyTranscript event stream");
     }
 
-    private Mono<Void> processWikiReadyTranscriptEvent(WikiReadyTranscript wikiReadyTranscript) {
+    private Mono<Void> processWikiReadyTranscriptEvent(TranscriptExecutiveSummary wikiReadyTranscript) {
         // Find all WikiReadyTranscripts and synthesize them
         return wikiReadyTranscriptRepository.findAll()
                 .collectList()
@@ -94,21 +94,21 @@ public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements E
                         return Mono.empty();
                     } else {
                         String allTranscripts = allWikiTranscripts.stream()
-                                .map(WikiReadyTranscript::getResult)
+                                .map(TranscriptExecutiveSummary::getResult)
                                 .collect(Collectors.joining("\n\n"));
                         String prompt = SYNTHESIS_PROMPT_TEMPLATE.replace("{{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}", allTranscripts);
                         return callLLM(prompt)
                                 .flatMap(result -> {
-                                    WikiResult wikiResult = new WikiResult();
-                                    wikiResult.setId(UUID.randomUUID());
-                                    wikiResult.setTranscriptId(wikiReadyTranscript.getSimplifiedTranscriptId()); // Link to the triggering transcript
-                                    wikiResult.setResult(result);
-                                    wikiResult.setCreatedAt(LocalDateTime.now());
-                                    wikiResult.setUpdatedAt(LocalDateTime.now());
-                                    return wikiRepository.save(wikiResult);
+                                    Wiki wiki = new Wiki();
+                                    wiki.setId(UUID.randomUUID());
+                                    wiki.setTranscriptId(wikiReadyTranscript.getTranscriptLogicallyOrganizedId()); // Link to the triggering transcript
+                                    wiki.setResult(result);
+                                    wiki.setCreatedAt(LocalDateTime.now());
+                                    wiki.setUpdatedAt(LocalDateTime.now());
+                                    return wikiRepository.save(wiki);
                                 })
                                 .flatMap(saved -> wikiResultEventPublisher.publish(saved).thenReturn(saved))
-                                .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} triggered by transcript: {}", saved.getId(), wikiReadyTranscript.getSimplifiedTranscriptId()))
+                                .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} triggered by transcript: {}", saved.getId(), wikiReadyTranscript.getTranscriptLogicallyOrganizedId()))
                                 .then();
                     }
                 })

@@ -1,6 +1,6 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
-import com.chaostensor.video_notes_to_wiki.entity.Transcript;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptStatus;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import org.springframework.stereotype.Service;
@@ -17,9 +17,9 @@ public class TranscriptionService {
         this.transcriptRepository = transcriptRepository;
     }
 
-    public Mono<Transcript> processTranscript(Transcript transcript) {
-        transcript.setStatus(TranscriptStatus.PROCESSING);
-        return transcriptRepository.save(transcript)
+    public Mono<TranscriptRaw> processTranscript(TranscriptRaw transcriptRaw) {
+        transcriptRaw.setStatus(TranscriptStatus.PROCESSING);
+        return transcriptRepository.save(transcriptRaw)
             .flatMap(savedTranscript -> {
                 return whisperService.transcribeVideo(savedTranscript.getVideoPath())
                     .flatMap(transcriptText -> {

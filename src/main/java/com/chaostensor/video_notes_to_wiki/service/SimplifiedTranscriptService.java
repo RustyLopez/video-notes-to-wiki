@@ -1,14 +1,12 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
-import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscript;
-import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscriptStatus;
-import com.chaostensor.video_notes_to_wiki.entity.Transcript;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
+import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.event.EventPublisher;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.repository.SimplifiedTranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptLogicallyOrganizedRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
@@ -19,25 +17,24 @@ import reactor.core.publisher.Mono;
 import java.util.UUID;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Service
 public class SimplifiedTranscriptService {
 
-    private final SimplifiedTranscriptRepository simplifiedTranscriptRepository;
+    private final TranscriptLogicallyOrganizedRepository transcriptLogicallyOrganizedRepository;
     private final TranscriptRepository transcriptRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
-    private final EventPublisher<SimplifiedTranscript> eventPublisher;
+    private final EventPublisher<TranscriptLogicallyOrganized> eventPublisher;
 
     private static final String PROMPT_TEMPLATE = """
             You are an expert technical writer creating structured documentation from video transcripts.
 
-            Here is the complete transcript from one video, provided as JSON with timestamps:
+            Here is the complete transcriptRaw from one video, provided as JSON with timestamps:
 
             {{TRANSCRIPT_JSON}}
 
-            Break this transcript into logical topical sections based on subject changes (not arbitrary time cuts).
+            Break this transcriptRaw into logical topical sections based on subject changes (not arbitrary time cuts).
 
             Produce a structured analysis that includes:
 
@@ -57,40 +54,40 @@ public class SimplifiedTranscriptService {
             Respond with well-structured markdown using clear headings.
             """;
 
-    public SimplifiedTranscriptService(SimplifiedTranscriptRepository simplifiedTranscriptRepository,
-                                         TranscriptRepository transcriptRepository,
-                                         WebClient.Builder webClientBuilder,
-                                         ObjectMapper objectMapper,
-                                         EventPublisher<SimplifiedTranscript> eventPublisher) {
-        this.simplifiedTranscriptRepository = simplifiedTranscriptRepository;
+    public SimplifiedTranscriptService(TranscriptLogicallyOrganizedRepository transcriptLogicallyOrganizedRepository,
+                                       TranscriptRepository transcriptRepository,
+                                       WebClient.Builder webClientBuilder,
+                                       ObjectMapper objectMapper,
+                                       EventPublisher<TranscriptLogicallyOrganized> eventPublisher) {
+        this.transcriptLogicallyOrganizedRepository = transcriptLogicallyOrganizedRepository;
         this.transcriptRepository = transcriptRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build(); // Assume LLM API at this URL
         this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
     }
 
-    public Mono<SimplifiedTranscript> processSimplifiedTranscript(UUID simplifiedTranscriptId) {
-        return simplifiedTranscriptRepository.findById(simplifiedTranscriptId)
+    public Mono<TranscriptLogicallyOrganized> processSimplifiedTranscript(UUID simplifiedTranscriptId) {
+        return transcriptLogicallyOrganizedRepository.findById(simplifiedTranscriptId)
             .flatMap(simplifiedTranscript -> {
-                simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.PROCESSING);
+                simplifiedTranscript.setStatus(LlmStatus.PROCESSING);
                 simplifiedTranscript.setUpdatedAt(LocalDateTime.now());
-                return simplifiedTranscriptRepository.save(simplifiedTranscript)
+                return transcriptLogicallyOrganizedRepository.save(simplifiedTranscript)
                     .flatMap(saved -> processTranscript(saved));
             });
     }
 
-    private Mono<SimplifiedTranscript> processTranscript(SimplifiedTranscript simplifiedTranscript) {
-        return transcriptRepository.findById(simplifiedTranscript.getTranscriptId())
-            .flatMap(transcript -> {
+    private Mono<TranscriptLogicallyOrganized> processTranscript(TranscriptLogicallyOrganized transcriptLogicallyOrganized) {
+        return transcriptRepository.findById(transcriptLogicallyOrganized.getTransccriptRawId())
+            .flatMap(transcriptRaw -> {
                 try {
-                    String transcriptContent = transcript.getTranscript();
+                    String transcriptContent = transcriptRaw.getTranscript();
                     if (transcriptContent == null) {
-                        simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.FAILED);
-                        simplifiedTranscript.setResult("Transcript not found");
-                        return simplifiedTranscriptRepository.save(simplifiedTranscript);
+                        transcriptLogicallyOrganized.setStatus(LlmStatus.FAILED);
+                        transcriptLogicallyOrganized.setResult("Transcript not found");
+                        return transcriptLogicallyOrganizedRepository.save(transcriptLogicallyOrganized);
                     }
 
-                    // Format transcript as JSON
+                    // Format transcriptRaw as JSON
                     ObjectNode transcriptJson = objectMapper.createObjectNode().put("content", transcriptContent);
                     String transcriptJsonStr = objectMapper.writeValueAsString(transcriptJson);
 
@@ -98,28 +95,28 @@ public class SimplifiedTranscriptService {
 
                     return callLLM(prompt)
                         .flatMap(result -> {
-                            simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.COMPLETED);
-                            simplifiedTranscript.setResult(result);
-                            simplifiedTranscript.setUpdatedAt(LocalDateTime.now());
-                            return simplifiedTranscriptRepository.save(simplifiedTranscript)
+                            transcriptLogicallyOrganized.setStatus(LlmStatus.COMPLETED);
+                            transcriptLogicallyOrganized.setResult(result);
+                            transcriptLogicallyOrganized.setUpdatedAt(LocalDateTime.now());
+                            return transcriptLogicallyOrganizedRepository.save(transcriptLogicallyOrganized)
                                 .flatMap(saved -> eventPublisher.publish(saved).thenReturn(saved));
                         })
                         .onErrorResume(e -> {
-                            simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.FAILED);
-                            simplifiedTranscript.setResult("Error: " + e.getMessage());
-                            simplifiedTranscript.setUpdatedAt(LocalDateTime.now());
-                            return simplifiedTranscriptRepository.save(simplifiedTranscript);
+                            transcriptLogicallyOrganized.setStatus(LlmStatus.FAILED);
+                            transcriptLogicallyOrganized.setResult("Error: " + e.getMessage());
+                            transcriptLogicallyOrganized.setUpdatedAt(LocalDateTime.now());
+                            return transcriptLogicallyOrganizedRepository.save(transcriptLogicallyOrganized);
                         });
                 } catch (Exception e) {
-                    simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.FAILED);
-                    simplifiedTranscript.setResult("Error parsing transcripts: " + e.getMessage());
-                    return simplifiedTranscriptRepository.save(simplifiedTranscript);
+                    transcriptLogicallyOrganized.setStatus(LlmStatus.FAILED);
+                    transcriptLogicallyOrganized.setResult("Error parsing transcripts: " + e.getMessage());
+                    return transcriptLogicallyOrganizedRepository.save(transcriptLogicallyOrganized);
                 }
             })
             .switchIfEmpty(Mono.defer(() -> {
-                simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.FAILED);
-                simplifiedTranscript.setResult("Job not found");
-                return simplifiedTranscriptRepository.save(simplifiedTranscript);
+                transcriptLogicallyOrganized.setStatus(LlmStatus.FAILED);
+                transcriptLogicallyOrganized.setResult("Job not found");
+                return transcriptLogicallyOrganizedRepository.save(transcriptLogicallyOrganized);
             }));
     }
 

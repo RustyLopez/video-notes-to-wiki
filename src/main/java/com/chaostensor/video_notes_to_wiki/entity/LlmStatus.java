@@ -1,6 +1,6 @@
 package com.chaostensor.video_notes_to_wiki.entity;
 
-public enum SimplifiedTranscriptStatus {
+public enum LlmStatus {
     PENDING,
     PROCESSING,
     COMPLETED,

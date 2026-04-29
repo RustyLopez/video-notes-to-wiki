@@ -1,10 +1,11 @@
 package com.chaostensor.video_notes_to_wiki.repository;
 
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
 import java.util.UUID;
 
 @Repository
-public interface TranscriptRepository extends ReactiveCrudRepository<TranscriptRaw, UUID> {
+public interface TranscriptLogicallyOrganizedRepository extends ReactiveCrudRepository<TranscriptLogicallyOrganized, UUID> {
+
 }

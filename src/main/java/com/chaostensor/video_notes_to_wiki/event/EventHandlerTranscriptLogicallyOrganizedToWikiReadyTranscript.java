@@ -1,6 +1,6 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscript;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
 import com.chaostensor.video_notes_to_wiki.service.WikiReadyTranscriptService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,16 +11,16 @@ import reactor.core.publisher.Mono;
 import jakarta.annotation.PostConstruct;
 
 @Component
-public class EventHandlerSimplifiedTranscriptToWikiReadyTranscript implements EventHandler<SimplifiedTranscript> {
+public class EventHandlerTranscriptLogicallyOrganizedToWikiReadyTranscript implements EventHandler<TranscriptLogicallyOrganized> {
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki.class);
 
-    private final InMemoryEventPublisher<SimplifiedTranscript> eventPublisher;
+    private final InMemoryEventPublisher<TranscriptLogicallyOrganized> eventPublisher;
     private final WikiReadyTranscriptService wikiReadyTranscriptService;
     private Disposable subscription;
 
-    public EventHandlerSimplifiedTranscriptToWikiReadyTranscript(InMemoryEventPublisher<SimplifiedTranscript> eventPublisher,
-                                                                 WikiReadyTranscriptService wikiReadyTranscriptService) {
+    public EventHandlerTranscriptLogicallyOrganizedToWikiReadyTranscript(InMemoryEventPublisher<TranscriptLogicallyOrganized> eventPublisher,
+                                                                         WikiReadyTranscriptService wikiReadyTranscriptService) {
         this.eventPublisher = eventPublisher;
         this.wikiReadyTranscriptService = wikiReadyTranscriptService;
     }
@@ -30,7 +30,7 @@ public class EventHandlerSimplifiedTranscriptToWikiReadyTranscript implements Ev
         subscription = eventPublisher.getEventStream()
             .flatMap(event -> wikiReadyTranscriptService.processSimplifiedTranscriptEvent(event)
                 .doOnError(error -> logger.error("Error processing event for SimplifiedTranscript id: {}", event.getId(), error))
-                .onErrorResume(e -> Mono.empty()) // Continue processing other events
+                .onErrorResume(e -> Mono.empty()) // Contin ue processing other events
             )
             .subscribe(
                 null, // onNext

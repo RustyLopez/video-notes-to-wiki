@@ -5,26 +5,26 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Table("transcript")
-public class Transcript {
+@Table("transcript_logically_organized")
+public class TranscriptLogicallyOrganized {
 
     @Id
     private UUID id;
-    private TranscriptStatus status;
-    private String videoPath;
-    private String transcript;
+    private UUID transccriptRawId;
+    private LlmStatus status;
+    private String result;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // constructors, getters, setters
 
-    public Transcript() {}
+    public TranscriptLogicallyOrganized() {}
 
-    public Transcript(UUID id, TranscriptStatus status, String videoPath, String transcript, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public TranscriptLogicallyOrganized(UUID id, UUID transcriptId, LlmStatus status, String result, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
+        this.transccriptRawId = transcriptId;
         this.status = status;
-        this.videoPath = videoPath;
-        this.transcript = transcript;
+        this.result = result;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -39,28 +39,28 @@ public class Transcript {
         this.id = id;
     }
 
-    public TranscriptStatus getStatus() {
+    public UUID getTransccriptRawId() {
+        return transccriptRawId;
+    }
+
+    public void setTransccriptRawId(UUID transccriptRawId) {
+        this.transccriptRawId = transccriptRawId;
+    }
+
+    public LlmStatus getStatus() {
         return status;
     }
 
-    public void setStatus(TranscriptStatus status) {
+    public void setStatus(LlmStatus status) {
         this.status = status;
     }
 
-    public String getVideoPath() {
-        return videoPath;
+    public String getResult() {
+        return result;
     }
 
-    public void setVideoPath(String videoPath) {
-        this.videoPath = videoPath;
-    }
-
-    public String getTranscript() {
-        return transcript;
-    }
-
-    public void setTranscript(String transcript) {
-        this.transcript = transcript;
+    public void setResult(String result) {
+        this.result = result;
     }
 
     public LocalDateTime getCreatedAt() {

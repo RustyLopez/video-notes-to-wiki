@@ -5,25 +5,23 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Table("simplified_transcript")
-public class SimplifiedTranscript {
+@Table("wiki_result")
+public class Wiki {
 
     @Id
     private UUID id;
     private UUID transcriptId;
-    private SimplifiedTranscriptStatus status;
     private String result;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // constructors, getters, setters
 
-    public SimplifiedTranscript() {}
+    public Wiki() {}
 
-    public SimplifiedTranscript(UUID id, UUID transcriptId, SimplifiedTranscriptStatus status, String result, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Wiki(UUID id, UUID transcriptId, String result, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.transcriptId = transcriptId;
-        this.status = status;
         this.result = result;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -45,14 +43,6 @@ public class SimplifiedTranscript {
 
     public void setTranscriptId(UUID transcriptId) {
         this.transcriptId = transcriptId;
-    }
-
-    public SimplifiedTranscriptStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(SimplifiedTranscriptStatus status) {
-        this.status = status;
     }
 
     public String getResult() {

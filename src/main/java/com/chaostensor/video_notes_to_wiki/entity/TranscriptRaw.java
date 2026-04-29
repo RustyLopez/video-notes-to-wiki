@@ -5,24 +5,26 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Table("wiki_ready_transcript")
-public class WikiReadyTranscript {
+@Table("transcript")
+public class TranscriptRaw {
 
     @Id
     private UUID id;
-    private UUID simplifiedTranscriptId;
-    private String result;
+    private LlmStatus status;
+    private String videoPath;
+    private String transcript;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // constructors, getters, setters
 
-    public WikiReadyTranscript() {}
+    public TranscriptRaw() {}
 
-    public WikiReadyTranscript(UUID id, UUID simplifiedTranscriptId, String result, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public TranscriptRaw(UUID id, LlmStatus status, String videoPath, String transcript, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
-        this.simplifiedTranscriptId = simplifiedTranscriptId;
-        this.result = result;
+        this.status = status;
+        this.videoPath = videoPath;
+        this.transcript = transcript;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -37,20 +39,28 @@ public class WikiReadyTranscript {
         this.id = id;
     }
 
-    public UUID getSimplifiedTranscriptId() {
-        return simplifiedTranscriptId;
+    public LlmStatus getStatus() {
+        return status;
     }
 
-    public void setSimplifiedTranscriptId(UUID simplifiedTranscriptId) {
-        this.simplifiedTranscriptId = simplifiedTranscriptId;
+    public void setStatus(LlmStatus status) {
+        this.status = status;
     }
 
-    public String getResult() {
-        return result;
+    public String getVideoPath() {
+        return videoPath;
     }
 
-    public void setResult(String result) {
-        this.result = result;
+    public void setVideoPath(String videoPath) {
+        this.videoPath = videoPath;
+    }
+
+    public String getTranscript() {
+        return transcript;
+    }
+
+    public void setTranscript(String transcript) {
+        this.transcript = transcript;
     }
 
     public LocalDateTime getCreatedAt() {
