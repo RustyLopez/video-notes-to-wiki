@@ -1,11 +1,10 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
+import com.chaostensor.video_notes_to_wiki.entity.CompressedTranscripts;
 import com.chaostensor.video_notes_to_wiki.entity.Wiki;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.repository.TranscriptLogicallyOrganizedRepository;
-import com.chaostensor.video_notes_to_wiki.repository.WikiReadyTranscriptRepository;
+
 import com.chaostensor.video_notes_to_wiki.repository.WikiRepository;
 import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -18,23 +17,21 @@ import reactor.core.publisher.Mono;
 
 import jakarta.annotation.PostConstruct;
 
-import java.util.stream.Collectors;
+
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Component
-public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements EventHandler<TranscriptExecutiveSummary> {
+public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements EventHandler<CompressedTranscripts> {
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki.class);
 
-    private final EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher;
-    private final TranscriptLogicallyOrganizedRepository transcriptLogicallyOrganizedRepository;
-    private final WikiReadyTranscriptRepository wikiReadyTranscriptRepository;
+    private final EventPublisher<CompressedTranscripts> compressedTranscriptsEventPublisher;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final WikiRepository wikiRepository;
-    private final WikiResultEventPublisher wikiResultEventPublisher;
+    private final EventPublisher<Wiki> wikiResultEventPublisher;
     private Disposable subscription;
 
     private static final String SYNTHESIS_PROMPT_TEMPLATE = """
@@ -56,16 +53,12 @@ public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements E
             Focus on creating something a new engineer could read and rapidly understand the key decisions, architecture, and current state of the project. Remove duplication across videos. Create clean hierarchy.
             """;
 
-    public EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki(EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher,
-                                                                  TranscriptLogicallyOrganizedRepository transcriptLogicallyOrganizedRepository,
-                                                                  WikiReadyTranscriptRepository wikiReadyTranscriptRepository,
-                                                                  WebClient.Builder webClientBuilder,
-                                                                  ObjectMapper objectMapper,
-                                                                  WikiRepository wikiRepository,
-                                                                  WikiResultEventPublisher wikiResultEventPublisher) {
-        this.wikiReadyTranscriptEventPublisher = wikiReadyTranscriptEventPublisher;
-        this.transcriptLogicallyOrganizedRepository = transcriptLogicallyOrganizedRepository;
-        this.wikiReadyTranscriptRepository = wikiReadyTranscriptRepository;
+    public EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki(EventPublisher<CompressedTranscripts> compressedTranscriptsEventPublisher,
+                                                                   WebClient.Builder webClientBuilder,
+                                                                   ObjectMapper objectMapper,
+                                                                   WikiRepository wikiRepository,
+                                                                   EventPublisher<Wiki> wikiResultEventPublisher) {
+        this.compressedTranscriptsEventPublisher = compressedTranscriptsEventPublisher;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         this.objectMapper = objectMapper;
         this.wikiRepository = wikiRepository;
@@ -74,8 +67,8 @@ public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements E
 
     @PostConstruct
     public void subscribe() {
-        subscription = wikiReadyTranscriptEventPublisher.getEventStream()
-                .flatMap(this::processWikiReadyTranscriptEvent)
+        subscription = compressedTranscriptsEventPublisher.getEventStream()
+                .flatMap(this::processCompressedTranscriptsEvent)
                 .subscribe(
                         null, // onNext
                         error -> logger.error("Error in WikiReadyTranscript event stream subscription", error),
@@ -84,36 +77,24 @@ public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements E
         logger.info("Subscribed to WikiReadyTranscript event stream");
     }
 
-    private Mono<Void> processWikiReadyTranscriptEvent(TranscriptExecutiveSummary wikiReadyTranscript) {
-        // Find all WikiReadyTranscripts and synthesize them
-        return wikiReadyTranscriptRepository.findAll()
-                .collectList()
-                .flatMap(allWikiTranscripts -> {
-                    if (allWikiTranscripts.isEmpty()) {
-                        logger.warn("No WikiReadyTranscripts found");
-                        return Mono.empty();
-                    } else {
-                        String allTranscripts = allWikiTranscripts.stream()
-                                .map(TranscriptExecutiveSummary::getResult)
-                                .collect(Collectors.joining("\n\n"));
-                        String prompt = SYNTHESIS_PROMPT_TEMPLATE.replace("{{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}", allTranscripts);
-                        return callLLM(prompt)
-                                .flatMap(result -> {
-                                    Wiki wiki = new Wiki();
-                                    wiki.setId(UUID.randomUUID());
-                                    wiki.setTranscriptId(wikiReadyTranscript.getTranscriptLogicallyOrganizedId()); // Link to the triggering transcript
-                                    wiki.setResult(result);
-                                    wiki.setCreatedAt(LocalDateTime.now());
-                                    wiki.setUpdatedAt(LocalDateTime.now());
-                                    return wikiRepository.save(wiki);
-                                })
-                                .flatMap(saved -> wikiResultEventPublisher.publish(saved).thenReturn(saved))
-                                .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} triggered by transcript: {}", saved.getId(), wikiReadyTranscript.getTranscriptLogicallyOrganizedId()))
-                                .then();
-                    }
+    private Mono<Void> processCompressedTranscriptsEvent(CompressedTranscripts compressedTranscripts) {
+        String allTranscripts = compressedTranscripts.getCompressedResult();
+        String prompt = SYNTHESIS_PROMPT_TEMPLATE.replace("{{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}", allTranscripts);
+        return callLLM(prompt)
+                .flatMap(result -> {
+                    Wiki wiki = new Wiki();
+                    wiki.setId(UUID.randomUUID());
+                    wiki.setTranscriptId(compressedTranscripts.getId()); // Link to the compressed transcripts
+                    wiki.setResult(result);
+                    wiki.setCreatedAt(LocalDateTime.now());
+                    wiki.setUpdatedAt(LocalDateTime.now());
+                    return wikiRepository.save(wiki);
                 })
+                .flatMap(saved -> wikiResultEventPublisher.publish(saved).thenReturn(saved))
+                .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} triggered by compressed transcripts: {}", saved.getId(), compressedTranscripts.getId()))
+                .then()
                 .onErrorResume(e -> {
-                    logger.error("Error processing WikiReadyTranscript event", e);
+                    logger.error("Error processing CompressedTranscripts event", e);
                     for (StackTraceElement element : e.getStackTrace()) {
                         logger.error(element.toString());
                     }
