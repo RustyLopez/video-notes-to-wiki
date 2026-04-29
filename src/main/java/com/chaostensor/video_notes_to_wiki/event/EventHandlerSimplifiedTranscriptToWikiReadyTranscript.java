@@ -11,16 +11,16 @@ import reactor.core.publisher.Mono;
 import jakarta.annotation.PostConstruct;
 
 @Component
-public class SimplifiedTranscriptEventSubscriber {
+public class EventHandlerSimplifiedTranscriptToWikiReadyTranscript implements EventHandler<SimplifiedTranscript> {
 
-    private static final Logger logger = LoggerFactory.getLogger(SimplifiedTranscriptEventSubscriber.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki.class);
 
-    private final InMemoryEventPublisher eventPublisher;
+    private final InMemoryEventPublisher<SimplifiedTranscript> eventPublisher;
     private final WikiReadyTranscriptService wikiReadyTranscriptService;
     private Disposable subscription;
 
-    public SimplifiedTranscriptEventSubscriber(InMemoryEventPublisher eventPublisher,
-                                                WikiReadyTranscriptService wikiReadyTranscriptService) {
+    public EventHandlerSimplifiedTranscriptToWikiReadyTranscript(InMemoryEventPublisher<SimplifiedTranscript> eventPublisher,
+                                                                 WikiReadyTranscriptService wikiReadyTranscriptService) {
         this.eventPublisher = eventPublisher;
         this.wikiReadyTranscriptService = wikiReadyTranscriptService;
     }

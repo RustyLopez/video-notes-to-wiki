@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 import java.util.UUID;
 
 @Repository
-public interface WikiResultRepository extends ReactiveCrudRepository<WikiResult, UUID> {
+public interface WikiRepository extends ReactiveCrudRepository<WikiResult, UUID> {
 }

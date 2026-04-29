@@ -13,18 +13,18 @@ import reactor.core.Disposable;
 import jakarta.annotation.PostConstruct;
 
 @Component
-public class SimplifiedTranscriptSubscriber {
+public class EventHandlerTranscriptToSimplifiedTranscript implements EventHandler<Transcript> {
 
-    private static final Logger logger = LoggerFactory.getLogger(SimplifiedTranscriptSubscriber.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventHandlerTranscriptToSimplifiedTranscript.class);
 
     private final EventPublisher<Transcript> transcriptEventPublisher;
     private final SimplifiedTranscriptRepository simplifiedTranscriptRepository;
     private final SimplifiedTranscriptService simplifiedTranscriptService;
     private Disposable subscription;
 
-    public SimplifiedTranscriptSubscriber(EventPublisher<Transcript> transcriptEventPublisher,
-                                         SimplifiedTranscriptRepository simplifiedTranscriptRepository,
-                                         SimplifiedTranscriptService simplifiedTranscriptService) {
+    public EventHandlerTranscriptToSimplifiedTranscript(EventPublisher<Transcript> transcriptEventPublisher,
+                                                        SimplifiedTranscriptRepository simplifiedTranscriptRepository,
+                                                        SimplifiedTranscriptService simplifiedTranscriptService) {
         this.transcriptEventPublisher = transcriptEventPublisher;
         this.simplifiedTranscriptRepository = simplifiedTranscriptRepository;
         this.simplifiedTranscriptService = simplifiedTranscriptService;

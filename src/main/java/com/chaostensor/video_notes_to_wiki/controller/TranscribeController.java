@@ -55,7 +55,7 @@ public class TranscribeController {
     @GetMapping("/{id}")
     public Mono<ResponseEntity<TranscribeResponse>> getTranscript(@PathVariable UUID id) {
         return transcriptRepository.findById(id)
-            .flatMap(transcript -> {
+            .<ResponseEntity<TranscribeResponse>>flatMap(transcript -> {
                 if (transcript.getStatus() == TranscriptStatus.COMPLETED) {
                     TranscribeResponse response = new TranscribeResponse(transcript.getId(), transcript.getTranscript());
                     return Mono.just(ResponseEntity.ok(response));
