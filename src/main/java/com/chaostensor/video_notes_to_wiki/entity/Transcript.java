@@ -5,26 +5,26 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Table("job")
-public class Job {
+@Table("transcript")
+public class Transcript {
 
     @Id
     private UUID id;
-    private JobStatus status;
-    private String inputDir;
-    private String transcriptsJson; // JSON string containing list of transcripts
+    private TranscriptStatus status;
+    private String videoPath;
+    private String transcript;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // constructors, getters, setters
 
-    public Job() {}
+    public Transcript() {}
 
-    public Job(UUID id, JobStatus status, String inputDir, String transcriptsJson, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public Transcript(UUID id, TranscriptStatus status, String videoPath, String transcript, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.status = status;
-        this.inputDir = inputDir;
-        this.transcriptsJson = transcriptsJson;
+        this.videoPath = videoPath;
+        this.transcript = transcript;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -39,28 +39,28 @@ public class Job {
         this.id = id;
     }
 
-    public JobStatus getStatus() {
+    public TranscriptStatus getStatus() {
         return status;
     }
 
-    public void setStatus(JobStatus status) {
+    public void setStatus(TranscriptStatus status) {
         this.status = status;
     }
 
-    public String getInputDir() {
-        return inputDir;
+    public String getVideoPath() {
+        return videoPath;
     }
 
-    public void setInputDir(String inputDir) {
-        this.inputDir = inputDir;
+    public void setVideoPath(String videoPath) {
+        this.videoPath = videoPath;
     }
 
-    public String getTranscriptsJson() {
-        return transcriptsJson;
+    public String getTranscript() {
+        return transcript;
     }
 
-    public void setTranscriptsJson(String transcriptsJson) {
-        this.transcriptsJson = transcriptsJson;
+    public void setTranscript(String transcript) {
+        this.transcript = transcript;
     }
 
     public LocalDateTime getCreatedAt() {

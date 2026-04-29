@@ -1,10 +1,10 @@
 package com.chaostensor.video_notes_to_wiki.repository;
 
-import com.chaostensor.video_notes_to_wiki.entity.Job;
+import com.chaostensor.video_notes_to_wiki.entity.Transcript;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
 import java.util.UUID;
 
 @Repository
-public interface JobRepository extends ReactiveCrudRepository<Job, UUID> {
+public interface TranscriptRepository extends ReactiveCrudRepository<Transcript, UUID> {
 }

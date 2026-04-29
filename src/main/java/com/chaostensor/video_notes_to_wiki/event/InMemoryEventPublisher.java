@@ -1,22 +1,20 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscript;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
-@Component
-public class InMemoryEventPublisher implements EventPublisher<SimplifiedTranscript> {
+public class InMemoryEventPublisher<T> implements EventPublisher<T> {
 
-    private final Sinks.Many<SimplifiedTranscript> sink = Sinks.many().multicast().onBackpressureBuffer();
+    private final Sinks.Many<T> sink = Sinks.many().multicast().onBackpressureBuffer();
 
-    public Flux<SimplifiedTranscript> getEventStream() {
+    public Flux<T> getEventStream() {
         return sink.asFlux();
     }
 
     @Override
-    public Mono<Void> publish(SimplifiedTranscript event) {
+    public Mono<Void> publish(T event) {
         return Mono.fromRunnable(() -> {
             Sinks.EmitResult result = sink.tryEmitNext(event);
             if (result.isFailure()) {

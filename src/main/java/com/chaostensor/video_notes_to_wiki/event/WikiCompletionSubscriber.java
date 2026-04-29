@@ -31,7 +31,7 @@ public class WikiCompletionSubscriber {
 
     private static final Logger logger = LoggerFactory.getLogger(WikiCompletionSubscriber.class);
 
-    private final WikiReadyTranscriptCompletionGroupEventPublisher completionGroupEventPublisher;
+    private final WikiReadyTranscriptEventPublisher wikiReadyTranscriptEventPublisher;
     private final SimplifiedTranscriptRepository simplifiedTranscriptRepository;
     private final WikiReadyTranscriptRepository wikiReadyTranscriptRepository;
     private final WebClient webClient;
@@ -59,14 +59,14 @@ public class WikiCompletionSubscriber {
         Focus on creating something a new engineer could read and rapidly understand the key decisions, architecture, and current state of the project. Remove duplication across videos. Create clean hierarchy.
         """;
 
-    public WikiCompletionSubscriber(WikiReadyTranscriptCompletionGroupEventPublisher completionGroupEventPublisher,
-                                    SimplifiedTranscriptRepository simplifiedTranscriptRepository,
-                                    WikiReadyTranscriptRepository wikiReadyTranscriptRepository,
-                                    WebClient.Builder webClientBuilder,
-                                    ObjectMapper objectMapper,
-                                    WikiResultRepository wikiResultRepository,
-                                    WikiResultEventPublisher wikiResultEventPublisher) {
-        this.completionGroupEventPublisher = completionGroupEventPublisher;
+    public WikiCompletionSubscriber(WikiReadyTranscriptEventPublisher wikiReadyTranscriptEventPublisher,
+                                     SimplifiedTranscriptRepository simplifiedTranscriptRepository,
+                                     WikiReadyTranscriptRepository wikiReadyTranscriptRepository,
+                                     WebClient.Builder webClientBuilder,
+                                     ObjectMapper objectMapper,
+                                     WikiResultRepository wikiResultRepository,
+                                     WikiResultEventPublisher wikiResultEventPublisher) {
+        this.wikiReadyTranscriptEventPublisher = wikiReadyTranscriptEventPublisher;
         this.simplifiedTranscriptRepository = simplifiedTranscriptRepository;
         this.wikiReadyTranscriptRepository = wikiReadyTranscriptRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
@@ -77,28 +77,26 @@ public class WikiCompletionSubscriber {
 
     @PostConstruct
     public void subscribe() {
-        subscription = completionGroupEventPublisher.getEventStream()
-            .flatMap(this::processCompletionGroupEvent)
+        subscription = wikiReadyTranscriptEventPublisher.getEventStream()
+            .flatMap(this::processWikiReadyTranscriptEvent)
             .subscribe(
                 null, // onNext
-                error -> logger.error("Error in WikiReadyTranscriptCompletionGroup event stream subscription", error),
-                () -> logger.info("WikiReadyTranscriptCompletionGroup event stream completed")
+                error -> logger.error("Error in WikiReadyTranscript event stream subscription", error),
+                () -> logger.info("WikiReadyTranscript event stream completed")
             );
-        logger.info("Subscribed to WikiReadyTranscriptCompletionGroup event stream");
+        logger.info("Subscribed to WikiReadyTranscript event stream");
     }
 
-    private Mono<Void> processCompletionGroupEvent(WikiReadyTranscriptCompletionGroup completionGroup) {
-        UUID jobId = completionGroup.getJobId();
-        // Find all SimplifiedTranscripts for the job, then get their WikiReadyTranscripts
-        return simplifiedTranscriptRepository.findByJobId(jobId)
-            .flatMap(simplified -> wikiReadyTranscriptRepository.findBySimplifiedTranscriptId(simplified.getId()))
+    private Mono<Void> processWikiReadyTranscriptEvent(WikiReadyTranscript wikiReadyTranscript) {
+        // Find all WikiReadyTranscripts and synthesize them
+        return wikiReadyTranscriptRepository.findAll()
             .collectList()
-            .flatMap(wikiTranscripts -> {
-                if (wikiTranscripts.isEmpty()) {
-                    logger.warn("No WikiReadyTranscripts found for jobId {}", jobId);
+            .flatMap(allWikiTranscripts -> {
+                if (allWikiTranscripts.isEmpty()) {
+                    logger.warn("No WikiReadyTranscripts found");
                     return Mono.empty();
                 } else {
-                    String allTranscripts = wikiTranscripts.stream()
+                    String allTranscripts = allWikiTranscripts.stream()
                         .map(WikiReadyTranscript::getResult)
                         .collect(Collectors.joining("\n\n"));
                     String prompt = SYNTHESIS_PROMPT_TEMPLATE.replace("{{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}", allTranscripts);
@@ -106,19 +104,19 @@ public class WikiCompletionSubscriber {
                         .flatMap(result -> {
                             WikiResult wikiResult = new WikiResult();
                             wikiResult.setId(UUID.randomUUID());
-                            wikiResult.setJobId(jobId);
+                            wikiResult.setTranscriptId(wikiReadyTranscript.getSimplifiedTranscriptId()); // Link to the triggering transcript
                             wikiResult.setResult(result);
                             wikiResult.setCreatedAt(LocalDateTime.now());
                             wikiResult.setUpdatedAt(LocalDateTime.now());
                             return wikiResultRepository.save(wikiResult);
                         })
                         .flatMap(saved -> wikiResultEventPublisher.publish(saved).thenReturn(saved))
-                        .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} for jobId: {}", saved.getId(), jobId))
+                        .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} triggered by transcript: {}", saved.getId(), wikiReadyTranscript.getSimplifiedTranscriptId()))
                         .then();
                 }
             })
             .onErrorResume(e -> {
-                logger.error("Error processing WikiReadyTranscriptCompletionGroup event", e);
+                logger.error("Error processing WikiReadyTranscript event", e);
                 for (StackTraceElement element : e.getStackTrace()) {
                     logger.error(element.toString());
                 }

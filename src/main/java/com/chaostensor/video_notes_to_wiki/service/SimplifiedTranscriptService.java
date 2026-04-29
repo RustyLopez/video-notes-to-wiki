@@ -1,13 +1,13 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
-import com.chaostensor.video_notes_to_wiki.entity.Job;
 import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscript;
 import com.chaostensor.video_notes_to_wiki.entity.SimplifiedTranscriptStatus;
+import com.chaostensor.video_notes_to_wiki.entity.Transcript;
 import com.chaostensor.video_notes_to_wiki.event.EventPublisher;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.repository.JobRepository;
 import com.chaostensor.video_notes_to_wiki.repository.SimplifiedTranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.ObjectMapper;
@@ -25,7 +25,7 @@ import java.util.Map;
 public class SimplifiedTranscriptService {
 
     private final SimplifiedTranscriptRepository simplifiedTranscriptRepository;
-    private final JobRepository jobRepository;
+    private final TranscriptRepository transcriptRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final EventPublisher<SimplifiedTranscript> eventPublisher;
@@ -58,12 +58,12 @@ public class SimplifiedTranscriptService {
             """;
 
     public SimplifiedTranscriptService(SimplifiedTranscriptRepository simplifiedTranscriptRepository,
-                                        JobRepository jobRepository,
-                                        WebClient.Builder webClientBuilder,
-                                        ObjectMapper objectMapper,
-                                        EventPublisher<SimplifiedTranscript> eventPublisher) {
+                                         TranscriptRepository transcriptRepository,
+                                         WebClient.Builder webClientBuilder,
+                                         ObjectMapper objectMapper,
+                                         EventPublisher<SimplifiedTranscript> eventPublisher) {
         this.simplifiedTranscriptRepository = simplifiedTranscriptRepository;
-        this.jobRepository = jobRepository;
+        this.transcriptRepository = transcriptRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build(); // Assume LLM API at this URL
         this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
@@ -80,19 +80,18 @@ public class SimplifiedTranscriptService {
     }
 
     private Mono<SimplifiedTranscript> processTranscript(SimplifiedTranscript simplifiedTranscript) {
-        return jobRepository.findById(simplifiedTranscript.getJobId())
-            .flatMap(job -> {
+        return transcriptRepository.findById(simplifiedTranscript.getTranscriptId())
+            .flatMap(transcript -> {
                 try {
-                    Map<String, String> transcripts = objectMapper.readValue(job.getTranscriptsJson(), Map.class);
-                    String transcript = transcripts.get(simplifiedTranscript.getTranscriptSubId());
-                    if (transcript == null) {
+                    String transcriptContent = transcript.getTranscript();
+                    if (transcriptContent == null) {
                         simplifiedTranscript.setStatus(SimplifiedTranscriptStatus.FAILED);
                         simplifiedTranscript.setResult("Transcript not found");
                         return simplifiedTranscriptRepository.save(simplifiedTranscript);
                     }
 
                     // Format transcript as JSON
-                    ObjectNode transcriptJson = objectMapper.createObjectNode().put("content", transcript);
+                    ObjectNode transcriptJson = objectMapper.createObjectNode().put("content", transcriptContent);
                     String transcriptJsonStr = objectMapper.writeValueAsString(transcriptJson);
 
                     String prompt = PROMPT_TEMPLATE.replace("{{TRANSCRIPT_JSON}}", transcriptJsonStr);

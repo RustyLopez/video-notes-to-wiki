@@ -10,8 +10,7 @@ public class SimplifiedTranscript {
 
     @Id
     private UUID id;
-    private UUID jobId;
-    private String transcriptSubId;
+    private UUID transcriptId;
     private SimplifiedTranscriptStatus status;
     private String result;
     private LocalDateTime createdAt;
@@ -21,10 +20,9 @@ public class SimplifiedTranscript {
 
     public SimplifiedTranscript() {}
 
-    public SimplifiedTranscript(UUID id, UUID jobId, String transcriptSubId, SimplifiedTranscriptStatus status, String result, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public SimplifiedTranscript(UUID id, UUID transcriptId, SimplifiedTranscriptStatus status, String result, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
-        this.jobId = jobId;
-        this.transcriptSubId = transcriptSubId;
+        this.transcriptId = transcriptId;
         this.status = status;
         this.result = result;
         this.createdAt = createdAt;
@@ -41,20 +39,12 @@ public class SimplifiedTranscript {
         this.id = id;
     }
 
-    public UUID getJobId() {
-        return jobId;
+    public UUID getTranscriptId() {
+        return transcriptId;
     }
 
-    public void setJobId(UUID jobId) {
-        this.jobId = jobId;
-    }
-
-    public String getTranscriptSubId() {
-        return transcriptSubId;
-    }
-
-    public void setTranscriptSubId(String transcriptSubId) {
-        this.transcriptSubId = transcriptSubId;
+    public void setTranscriptId(UUID transcriptId) {
+        this.transcriptId = transcriptId;
     }
 
     public SimplifiedTranscriptStatus getStatus() {

@@ -10,7 +10,7 @@ public class WikiResult {
 
     @Id
     private UUID id;
-    private UUID jobId;
+    private UUID transcriptId;
     private String result;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -19,9 +19,9 @@ public class WikiResult {
 
     public WikiResult() {}
 
-    public WikiResult(UUID id, UUID jobId, String result, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public WikiResult(UUID id, UUID transcriptId, String result, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
-        this.jobId = jobId;
+        this.transcriptId = transcriptId;
         this.result = result;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -37,12 +37,12 @@ public class WikiResult {
         this.id = id;
     }
 
-    public UUID getJobId() {
-        return jobId;
+    public UUID getTranscriptId() {
+        return transcriptId;
     }
 
-    public void setJobId(UUID jobId) {
-        this.jobId = jobId;
+    public void setTranscriptId(UUID transcriptId) {
+        this.transcriptId = transcriptId;
     }
 
     public String getResult() {

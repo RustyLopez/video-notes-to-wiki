@@ -1,6 +1,6 @@
 package com.chaostensor.video_notes_to_wiki.entity;
 
-public enum JobStatus {
+public enum TranscriptStatus {
     PENDING,
     PROCESSING,
     COMPLETED,

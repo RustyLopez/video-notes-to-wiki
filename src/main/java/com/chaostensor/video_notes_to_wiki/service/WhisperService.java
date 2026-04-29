@@ -25,6 +25,11 @@ public class WhisperService {
         this.webClient = builder.baseUrl("http://localhost:8081/insanely-fast-whisper").build();
     }
 
+    public Mono<String> transcribeVideo(String filePath) {
+        String fileName = java.nio.file.Paths.get(filePath).getFileName().toString();
+        return transcribeSingle(fileName, filePath);
+    }
+
     public Mono<Map<String, String>> transcribeVideos(Map<String, String> filePaths) {
         // For each file, call transcribe and collect results
         return Mono.zip(
