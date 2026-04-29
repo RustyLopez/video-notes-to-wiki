@@ -1,7 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.controller;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
-import com.chaostensor.video_notes_to_wiki.service.TranscriptionService;
+import com.chaostensor.video_notes_to_wiki.service.WhisperService;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.event.EventStream;
@@ -15,14 +15,14 @@ import java.util.UUID;
 public class TranscriptRawController {
 
     private final TranscriptRepository transcriptRepository;
-    private final TranscriptionService transcriptionService;
+    private final WhisperService whisperService;
     private final EventStream<TranscriptRaw> eventStream;
 
     public TranscriptRawController(TranscriptRepository transcriptRepository,
-                                   TranscriptionService transcriptionService,
-                                   EventStream<TranscriptRaw> eventStream) {
+                                    WhisperService whisperService,
+                                    EventStream<TranscriptRaw> eventStream) {
         this.transcriptRepository = transcriptRepository;
-        this.transcriptionService = transcriptionService;
+        this.whisperService = whisperService;
         this.eventStream = eventStream;
     }
 
@@ -36,7 +36,7 @@ public class TranscriptRawController {
         return transcriptRepository.save(transcriptRaw)
             .doOnNext(savedTranscript -> {
                 // Start async processing
-                transcriptionService.processTranscript(savedTranscript)
+                processTranscript(savedTranscript)
                     .flatMap(completedTranscript -> {
                         if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
                             // Publish event for completed transcript
@@ -83,5 +83,22 @@ public class TranscriptRawController {
                 }
             })
             .defaultIfEmpty(ResponseEntity.<DtoTranscriptRaw>notFound().build());
+    }
+
+    private Mono<TranscriptRaw> processTranscript(TranscriptRaw transcriptRaw) {
+        transcriptRaw.setStatus(LlmStatus.PROCESSING);
+        return transcriptRepository.save(transcriptRaw)
+            .flatMap(savedTranscript -> {
+                return whisperService.transcribeVideo(savedTranscript.getVideoPath())
+                    .flatMap(transcriptText -> {
+                        savedTranscript.setTranscript(transcriptText);
+                        savedTranscript.setStatus(LlmStatus.COMPLETED);
+                        return transcriptRepository.save(savedTranscript);
+                    })
+                    .onErrorResume(e -> {
+                        savedTranscript.setStatus(LlmStatus.FAILED);
+                        return transcriptRepository.save(savedTranscript);
+                    });
+            });
     }
 }
