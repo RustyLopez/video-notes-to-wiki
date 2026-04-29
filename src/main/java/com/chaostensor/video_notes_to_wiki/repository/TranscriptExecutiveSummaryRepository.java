@@ -6,6 +6,6 @@ import org.springframework.stereotype.Repository;
 import java.util.UUID;
 
 @Repository
-public interface WikiReadyTranscriptRepository extends ReactiveCrudRepository<TranscriptExecutiveSummary, UUID> {
+public interface TranscriptExecutiveSummaryRepository extends ReactiveCrudRepository<TranscriptExecutiveSummary, UUID> {
 
 }

@@ -2,7 +2,7 @@ package com.chaostensor.video_notes_to_wiki.service;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
-import com.chaostensor.video_notes_to_wiki.event.EventPublisher;
+import com.chaostensor.video_notes_to_wiki.event.EventStream;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptLogicallyOrganizedRepository;
@@ -25,7 +25,7 @@ public class SimplifiedTranscriptService {
     private final TranscriptRepository transcriptRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
-    private final EventPublisher<TranscriptLogicallyOrganized> eventPublisher;
+    private final EventStream<TranscriptLogicallyOrganized> eventStream;
 
     private static final String PROMPT_TEMPLATE = """
             You are an expert technical writer creating structured documentation from video transcripts.
@@ -58,12 +58,12 @@ public class SimplifiedTranscriptService {
                                        TranscriptRepository transcriptRepository,
                                        WebClient.Builder webClientBuilder,
                                        ObjectMapper objectMapper,
-                                       EventPublisher<TranscriptLogicallyOrganized> eventPublisher) {
+                                       EventStream<TranscriptLogicallyOrganized> eventStream) {
         this.transcriptLogicallyOrganizedRepository = transcriptLogicallyOrganizedRepository;
         this.transcriptRepository = transcriptRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build(); // Assume LLM API at this URL
         this.objectMapper = objectMapper;
-        this.eventPublisher = eventPublisher;
+        this.eventStream = eventStream;
     }
 
     public Mono<TranscriptLogicallyOrganized> processSimplifiedTranscript(UUID simplifiedTranscriptId) {
@@ -99,7 +99,7 @@ public class SimplifiedTranscriptService {
                             transcriptLogicallyOrganized.setResult(result);
                             transcriptLogicallyOrganized.setUpdatedAt(LocalDateTime.now());
                             return transcriptLogicallyOrganizedRepository.save(transcriptLogicallyOrganized)
-                                .flatMap(saved -> eventPublisher.publish(saved).thenReturn(saved));
+                                .flatMap(saved -> eventStream.publish(saved).thenReturn(saved));
                         })
                         .onErrorResume(e -> {
                             transcriptLogicallyOrganized.setStatus(LlmStatus.FAILED);

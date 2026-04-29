@@ -1,6 +1,6 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import com.chaostensor.video_notes_to_wiki.entity.CompressedTranscripts;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.entity.Wiki;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
@@ -23,15 +23,15 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Component
-public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements EventHandler<CompressedTranscripts> {
+public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHandler<TranscriptsHierarchicalRollup> {
 
-    private static final Logger logger = LoggerFactory.getLogger(EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventHandlerTranscriptsHierarchicalRollupToWiki.class);
 
-    private final EventPublisher<CompressedTranscripts> compressedTranscriptsEventPublisher;
+    private final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final WikiRepository wikiRepository;
-    private final EventPublisher<Wiki> wikiResultEventPublisher;
+    private final EventStream<Wiki> wikiResultEventStream;
     private Disposable subscription;
 
     private static final String SYNTHESIS_PROMPT_TEMPLATE = """
@@ -53,21 +53,21 @@ public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements E
             Focus on creating something a new engineer could read and rapidly understand the key decisions, architecture, and current state of the project. Remove duplication across videos. Create clean hierarchy.
             """;
 
-    public EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki(EventPublisher<CompressedTranscripts> compressedTranscriptsEventPublisher,
-                                                                   WebClient.Builder webClientBuilder,
-                                                                   ObjectMapper objectMapper,
-                                                                   WikiRepository wikiRepository,
-                                                                   EventPublisher<Wiki> wikiResultEventPublisher) {
-        this.compressedTranscriptsEventPublisher = compressedTranscriptsEventPublisher;
+    public EventHandlerTranscriptsHierarchicalRollupToWiki(EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream,
+                                                           WebClient.Builder webClientBuilder,
+                                                           ObjectMapper objectMapper,
+                                                           WikiRepository wikiRepository,
+                                                           EventStream<Wiki> wikiResultEventStream) {
+        this.compressedTranscriptsEventStream = compressedTranscriptsEventStream;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         this.objectMapper = objectMapper;
         this.wikiRepository = wikiRepository;
-        this.wikiResultEventPublisher = wikiResultEventPublisher;
+        this.wikiResultEventStream = wikiResultEventStream;
     }
 
     @PostConstruct
     public void subscribe() {
-        subscription = compressedTranscriptsEventPublisher.getEventStream()
+        subscription = compressedTranscriptsEventStream.getEventStream()
                 .flatMap(this::processCompressedTranscriptsEvent)
                 .subscribe(
                         null, // onNext
@@ -77,21 +77,21 @@ public class EventHandlerCombineLatestAllWikiReadyTranscriptsToWiki implements E
         logger.info("Subscribed to WikiReadyTranscript event stream");
     }
 
-    private Mono<Void> processCompressedTranscriptsEvent(CompressedTranscripts compressedTranscripts) {
-        String allTranscripts = compressedTranscripts.getCompressedResult();
+    private Mono<Void> processCompressedTranscriptsEvent(TranscriptsHierarchicalRollup transcriptsHierarchicalRollup) {
+        String allTranscripts = transcriptsHierarchicalRollup.getCompressedResult();
         String prompt = SYNTHESIS_PROMPT_TEMPLATE.replace("{{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}", allTranscripts);
         return callLLM(prompt)
                 .flatMap(result -> {
                     Wiki wiki = new Wiki();
                     wiki.setId(UUID.randomUUID());
-                    wiki.setTranscriptId(compressedTranscripts.getId()); // Link to the compressed transcripts
+                    wiki.setTranscriptId(transcriptsHierarchicalRollup.getId()); // Link to the compressed transcripts
                     wiki.setResult(result);
                     wiki.setCreatedAt(LocalDateTime.now());
                     wiki.setUpdatedAt(LocalDateTime.now());
                     return wikiRepository.save(wiki);
                 })
-                .flatMap(saved -> wikiResultEventPublisher.publish(saved).thenReturn(saved))
-                .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} triggered by compressed transcripts: {}", saved.getId(), compressedTranscripts.getId()))
+                .flatMap(saved -> wikiResultEventStream.publish(saved).thenReturn(saved))
+                .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} triggered by compressed transcripts: {}", saved.getId(), transcriptsHierarchicalRollup.getId()))
                 .then()
                 .onErrorResume(e -> {
                     logger.error("Error processing CompressedTranscripts event", e);

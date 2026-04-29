@@ -1,12 +1,12 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
-import com.chaostensor.video_notes_to_wiki.entity.CompressedTranscripts;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
-import com.chaostensor.video_notes_to_wiki.event.EventPublisher;
+import com.chaostensor.video_notes_to_wiki.event.EventStream;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.repository.CompressedTranscriptsRepository;
-import com.chaostensor.video_notes_to_wiki.repository.WikiReadyTranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptsHierarchicalRollupRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
 import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,11 +24,11 @@ public class CompressedTranscriptsService {
 
     private static final Logger logger = LoggerFactory.getLogger(CompressedTranscriptsService.class);
 
-    private final WikiReadyTranscriptRepository wikiReadyTranscriptRepository;
-    private final CompressedTranscriptsRepository compressedTranscriptsRepository;
+    private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
+    private final TranscriptsHierarchicalRollupRepository transcriptsHierarchicalRollupRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
-    private final EventPublisher<CompressedTranscripts> compressedTranscriptsEventPublisher;
+    private final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream;
 
     private static final String COMPRESSION_PROMPT_TEMPLATE = """
             Compress the following collection of wiki-ready transcripts into a condensed summary that retains all key information, insights, action items, and topic tags. Reduce the total length to fit within a single LLM context window while preserving the most important details and structure.
@@ -40,22 +40,22 @@ public class CompressedTranscriptsService {
             Provide the compressed summary in a structured format.
             """;
 
-    public CompressedTranscriptsService(WikiReadyTranscriptRepository wikiReadyTranscriptRepository,
-                                        CompressedTranscriptsRepository compressedTranscriptsRepository,
+    public CompressedTranscriptsService(TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository,
+                                        TranscriptsHierarchicalRollupRepository transcriptsHierarchicalRollupRepository,
                                         WebClient.Builder webClientBuilder,
                                         ObjectMapper objectMapper,
-                                        EventPublisher<CompressedTranscripts> compressedTranscriptsEventPublisher) {
-        this.wikiReadyTranscriptRepository = wikiReadyTranscriptRepository;
-        this.compressedTranscriptsRepository = compressedTranscriptsRepository;
+                                        EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream) {
+        this.transcriptExecutiveSummaryRepository = transcriptExecutiveSummaryRepository;
+        this.transcriptsHierarchicalRollupRepository = transcriptsHierarchicalRollupRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         this.objectMapper = objectMapper;
-        this.compressedTranscriptsEventPublisher = compressedTranscriptsEventPublisher;
+        this.compressedTranscriptsEventStream = compressedTranscriptsEventStream;
     }
 
     public Mono<Void> processWikiReadyTranscriptEvent(TranscriptExecutiveSummary transcriptExecutiveSummary) {
         logger.info("Processing compression for WikiReadyTranscript id: {}", transcriptExecutiveSummary.getId());
 
-        return wikiReadyTranscriptRepository.findAll()
+        return transcriptExecutiveSummaryRepository.findAll()
                 .collectList()
                 .flatMap(allTranscripts -> {
                     if (allTranscripts.isEmpty()) {
@@ -68,14 +68,14 @@ public class CompressedTranscriptsService {
                         String prompt = COMPRESSION_PROMPT_TEMPLATE.replace("{{ALL_WIKI_READY_TRANSCRIPTS}}", allTranscriptsText);
                         return callLLM(prompt)
                                 .flatMap(compressedResult -> {
-                                    CompressedTranscripts compressed = new CompressedTranscripts();
+                                    TranscriptsHierarchicalRollup compressed = new TranscriptsHierarchicalRollup();
                                     compressed.setId(UUID.randomUUID());
                                     compressed.setCompressedResult(compressedResult);
                                     compressed.setCreatedAt(LocalDateTime.now());
                                     compressed.setUpdatedAt(LocalDateTime.now());
-                                    return compressedTranscriptsRepository.save(compressed);
+                                    return transcriptsHierarchicalRollupRepository.save(compressed);
                                 })
-                                .flatMap(saved -> compressedTranscriptsEventPublisher.publish(saved).thenReturn(saved))
+                                .flatMap(saved -> compressedTranscriptsEventStream.publish(saved).thenReturn(saved))
                                 .doOnNext(saved -> logger.info("Saved and published CompressedTranscripts id: {}", saved.getId()))
                                 .then();
                     }

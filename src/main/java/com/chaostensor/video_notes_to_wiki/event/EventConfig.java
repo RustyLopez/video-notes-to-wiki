@@ -3,7 +3,7 @@ package com.chaostensor.video_notes_to_wiki.event;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
-import com.chaostensor.video_notes_to_wiki.entity.CompressedTranscripts;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.entity.Wiki;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,27 +12,27 @@ import org.springframework.context.annotation.Configuration;
 public class EventConfig {
 
     @Bean
-    public EventPublisher<TranscriptRaw> transcriptEventPublisher() {
-        return new InMemoryEventPublisher<>();
+    public EventStream<TranscriptRaw> transcriptEventPublisher() {
+        return new EventStreamInMemoryImpl<>();
     }
 
     @Bean
-    public EventPublisher<TranscriptLogicallyOrganized> simplifiedTranscriptEventPublisher() {
-        return new InMemoryEventPublisher<>();
+    public EventStream<TranscriptLogicallyOrganized> simplifiedTranscriptEventPublisher() {
+        return new EventStreamInMemoryImpl<>();
     }
 
     @Bean
-    public EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher() {
-        return new InMemoryEventPublisher<>();
+    public EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher() {
+        return new EventStreamInMemoryImpl<>();
     }
 
     @Bean
-    public EventPublisher<CompressedTranscripts> compressedTranscriptsEventPublisher() {
-        return new InMemoryEventPublisher<>();
+    public EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventPublisher() {
+        return new EventStreamInMemoryImpl<>();
     }
 
     @Bean
-    public EventPublisher<Wiki> wikiResultEventPublisher() {
-        return new InMemoryEventPublisher<>();
+    public EventStream<Wiki> wikiResultEventPublisher() {
+        return new EventStreamInMemoryImpl<>();
     }
 }

@@ -5,8 +5,12 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Table("compressed_transcripts")
-public class CompressedTranscripts {
+/**
+ * NOTE may be very large we  probably want to .. partition and expire rows here. Could get away
+ * with only saving the latest since it's all derived but, may be nice to have some history.
+ */
+@Table("transcripts_hierarchical_rollup")
+public class TranscriptsHierarchicalRollup {
 
     @Id
     private UUID id;
@@ -16,9 +20,9 @@ public class CompressedTranscripts {
 
     // constructors, getters, setters
 
-    public CompressedTranscripts() {}
+    public TranscriptsHierarchicalRollup() {}
 
-    public CompressedTranscripts(UUID id, String compressedResult, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public TranscriptsHierarchicalRollup(UUID id, String compressedResult, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.compressedResult = compressedResult;
         this.createdAt = createdAt;

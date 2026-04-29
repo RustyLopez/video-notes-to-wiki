@@ -5,7 +5,7 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Table("transcript")
+@Table("transcript_raw")
 public class TranscriptRaw {
 
     @Id

@@ -4,26 +4,26 @@ import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.service.TranscriptionService;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
-import com.chaostensor.video_notes_to_wiki.event.EventPublisher;
+import com.chaostensor.video_notes_to_wiki.event.EventStream;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/transcribe")
+@RequestMapping("/transcripts")
 public class TranscriptRawController {
 
     private final TranscriptRepository transcriptRepository;
     private final TranscriptionService transcriptionService;
-    private final EventPublisher<TranscriptRaw> eventPublisher;
+    private final EventStream<TranscriptRaw> eventStream;
 
     public TranscriptRawController(TranscriptRepository transcriptRepository,
                                    TranscriptionService transcriptionService,
-                                   EventPublisher<TranscriptRaw> eventPublisher) {
+                                   EventStream<TranscriptRaw> eventStream) {
         this.transcriptRepository = transcriptRepository;
         this.transcriptionService = transcriptionService;
-        this.eventPublisher = eventPublisher;
+        this.eventStream = eventStream;
     }
 
     @PostMapping
@@ -40,7 +40,7 @@ public class TranscriptRawController {
                     .flatMap(completedTranscript -> {
                         if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
                             // Publish event for completed transcript
-                            return eventPublisher.publish(completedTranscript);
+                            return eventStream.publish(completedTranscript);
                         }
                         return Mono.empty();
                     })

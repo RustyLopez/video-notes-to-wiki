@@ -2,10 +2,10 @@ package com.chaostensor.video_notes_to_wiki.service;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
-import com.chaostensor.video_notes_to_wiki.event.EventPublisher;
+import com.chaostensor.video_notes_to_wiki.event.EventStream;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.repository.WikiReadyTranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
 import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,10 +22,10 @@ public class WikiReadyTranscriptService {
 
     private static final Logger logger = LoggerFactory.getLogger(WikiReadyTranscriptService.class);
 
-    private final WikiReadyTranscriptRepository wikiReadyTranscriptRepository;
+    private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
-    private final EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher;
+    private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
 
     private static final String PROMPT_TEMPLATE = """
             You are creating high-quality, professional wiki documentation.
@@ -57,20 +57,20 @@ public class WikiReadyTranscriptService {
             Write in clear, professional documentation tone. Eliminate redundancy. Prioritize accuracy and usefulness.
             """;
 
-    public WikiReadyTranscriptService(WikiReadyTranscriptRepository wikiReadyTranscriptRepository,
+    public WikiReadyTranscriptService(TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository,
                                       WebClient.Builder webClientBuilder,
                                       ObjectMapper objectMapper,
-                                      EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher) {
-        this.wikiReadyTranscriptRepository = wikiReadyTranscriptRepository;
+                                      EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream) {
+        this.transcriptExecutiveSummaryRepository = transcriptExecutiveSummaryRepository;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         this.objectMapper = objectMapper;
-        this.wikiReadyTranscriptEventPublisher = wikiReadyTranscriptEventPublisher;
+        this.wikiReadyTranscriptEventStream = wikiReadyTranscriptEventStream;
     }
 
     public Mono<Void> processSimplifiedTranscriptEvent(TranscriptLogicallyOrganized transcriptLogicallyOrganized) {
         logger.info("Processing event for SimplifiedTranscript id: {}", transcriptLogicallyOrganized.getId());
 
-        return wikiReadyTranscriptRepository.findBySimplifiedTranscriptId(transcriptLogicallyOrganized.getId())
+        return transcriptExecutiveSummaryRepository.findById(transcriptLogicallyOrganized.getId())
                 .flatMap(existing -> {
                     logger.warn("WikiReadyTranscript already exists for SimplifiedTranscript id: {}, discarding event", transcriptLogicallyOrganized.getId());
                     return Mono.empty();
@@ -90,9 +90,9 @@ public class WikiReadyTranscriptService {
                     wikiReadyTranscript.setResult(result);
                     wikiReadyTranscript.setCreatedAt(LocalDateTime.now());
                     wikiReadyTranscript.setUpdatedAt(LocalDateTime.now());
-                    return wikiReadyTranscriptRepository.save(wikiReadyTranscript);
+                    return transcriptExecutiveSummaryRepository.save(wikiReadyTranscript);
                 })
-                .flatMap(saved -> wikiReadyTranscriptEventPublisher.publish(saved).thenReturn(saved))
+                .flatMap(saved -> wikiReadyTranscriptEventStream.publish(saved).thenReturn(saved))
                 .doOnNext(saved -> logger.info("Saved and published WikiReadyTranscript id: {} for SimplifiedTranscript id: {}", saved.getId(), transcriptLogicallyOrganized.getId()))
                 .doOnError(error -> {
                     logger.error("Error processing WikiReadyTranscript for SimplifiedTranscript id: {}", transcriptLogicallyOrganized.getId(), error);

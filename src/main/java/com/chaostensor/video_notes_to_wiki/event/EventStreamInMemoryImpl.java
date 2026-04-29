@@ -1,11 +1,10 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
-public class InMemoryEventPublisher<T> implements EventPublisher<T> {
+public class EventStreamInMemoryImpl<T> implements EventStream<T> {
 
     private final Sinks.Many<T> sink = Sinks.many().multicast().onBackpressureBuffer();
 

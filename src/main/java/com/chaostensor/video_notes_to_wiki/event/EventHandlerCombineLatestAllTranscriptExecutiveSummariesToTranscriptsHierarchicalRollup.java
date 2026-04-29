@@ -11,23 +11,23 @@ import reactor.core.publisher.Mono;
 import jakarta.annotation.PostConstruct;
 
 @Component
-public class EventHandlerWikiReadyTranscriptToCompressedTranscripts implements EventHandler<TranscriptExecutiveSummary> {
+public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup implements EventHandler<TranscriptExecutiveSummary> {
 
-    private static final Logger logger = LoggerFactory.getLogger(EventHandlerWikiReadyTranscriptToCompressedTranscripts.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup.class);
 
-    private final EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher;
+    private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final CompressedTranscriptsService compressedTranscriptsService;
     private Disposable subscription;
 
-    public EventHandlerWikiReadyTranscriptToCompressedTranscripts(EventPublisher<TranscriptExecutiveSummary> wikiReadyTranscriptEventPublisher,
-                                                                  CompressedTranscriptsService compressedTranscriptsService) {
-        this.wikiReadyTranscriptEventPublisher = wikiReadyTranscriptEventPublisher;
+    public EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup(EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream,
+                                                                                                   CompressedTranscriptsService compressedTranscriptsService) {
+        this.wikiReadyTranscriptEventStream = wikiReadyTranscriptEventStream;
         this.compressedTranscriptsService = compressedTranscriptsService;
     }
 
     @PostConstruct
     public void subscribe() {
-        subscription = wikiReadyTranscriptEventPublisher.getEventStream()
+        subscription = wikiReadyTranscriptEventStream.getEventStream()
             .flatMap(event -> compressedTranscriptsService.processWikiReadyTranscriptEvent(event)
                 .doOnError(error -> logger.error("Error processing event for TranscriptExecutiveSummary id: {}", event.getId(), error))
                 .onErrorResume(e -> Mono.empty()) // Continue processing other events

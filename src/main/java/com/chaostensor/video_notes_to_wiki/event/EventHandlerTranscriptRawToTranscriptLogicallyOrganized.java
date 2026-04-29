@@ -17,22 +17,22 @@ public class EventHandlerTranscriptRawToTranscriptLogicallyOrganized implements 
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandlerTranscriptRawToTranscriptLogicallyOrganized.class);
 
-    private final EventPublisher<TranscriptRaw> transcriptEventPublisher;
+    private final EventStream<TranscriptRaw> transcriptEventStream;
     private final TranscriptLogicallyOrganizedRepository transcriptLogicallyOrganizedRepository;
     private final SimplifiedTranscriptService simplifiedTranscriptService;
     private Disposable subscription;
 
-    public EventHandlerTranscriptRawToTranscriptLogicallyOrganized(EventPublisher<TranscriptRaw> transcriptEventPublisher,
+    public EventHandlerTranscriptRawToTranscriptLogicallyOrganized(EventStream<TranscriptRaw> transcriptEventStream,
                                                                    TranscriptLogicallyOrganizedRepository transcriptLogicallyOrganizedRepository,
                                                                    SimplifiedTranscriptService simplifiedTranscriptService) {
-        this.transcriptEventPublisher = transcriptEventPublisher;
+        this.transcriptEventStream = transcriptEventStream;
         this.transcriptLogicallyOrganizedRepository = transcriptLogicallyOrganizedRepository;
         this.simplifiedTranscriptService = simplifiedTranscriptService;
     }
 
     @PostConstruct
     public void subscribe() {
-        subscription = transcriptEventPublisher.getEventStream()
+        subscription = transcriptEventStream.getEventStream()
             .flatMap(this::processTranscriptEvent)
             .subscribe(
                 null, // onNext
