@@ -7,3 +7,12 @@ spring:
     password: password
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+
+app:
+  llm:
+    contextWindowTokens: 4096
+    maxChunkTokens: 4096
+    reductionRatio: 0.3
+    threadPoolSize: 5
+    maxMemoryUsageMb: 1024
+    promptOverheadTokens: 500

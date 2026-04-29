@@ -1,98 +1,109 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
+import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
-import tools.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class EventHandlerTranscriptLogicallyOrganizedToTranscriptExecutiveSummary implements EventHandler<TranscriptLogicallyOrganized> {
-
-    private static final Logger logger = LoggerFactory.getLogger(EventHandlerTranscriptLogicallyOrganizedToTranscriptExecutiveSummary.class);
 
     private final EventStream<TranscriptLogicallyOrganized> eventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
-    private final WebClient webClient;
-    private final ObjectMapper objectMapper;
+    private final WebClient.Builder webClientBuilder;
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
-    private Disposable subscription;
+    private final LlmConfig llmConfig;
+
+    private final Semaphore concurrencySemaphore;
 
     private static final String PROMPT_TEMPLATE = """
             You are creating high-quality, professional wiki documentation.
 
-            Here is a structured analysis and breakdown of one video:
+            Here is a structured analysis and breakdown of one video: {{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}
 
-            {{SIMPLIFIED_TRANSCRIPT_DATA}}
+            Transform this into polished, concise wiki-ready content.
 
-            Transform this into polished, concise wiki-ready content. Produce exactly these sections:
+            First output this exact metadata header:
+            **Source:** [Video/Recording Title or ID]
+            **Length of Original:** [original duration if known]
+            **Core Abstract:** [one crisp sentence capturing the single most important takeaway]
+
+            Then produce exactly these sections (use the exact headings below):
 
             **Executive Summary**
-            (4-6 sentences, high signal density, written for someone who needs to get up to speed quickly)
+            (4–6 sentences maximum, extremely high signal density, written for someone who needs to get up to speed in <60 seconds)
 
             **Key Insights & Takeaways**
-            - Comprehensive, prioritized bullet list
+            (comprehensive yet prioritized bullet list — aim for 8–15 bullets total)
 
             **Technical Concepts & Decisions**
-            - Explain important ideas, tradeoffs, and architecture decisions clearly
+            (explain important ideas, tradeoffs, and architecture decisions clearly — keep concise)
 
             **Action Items & Open Questions**
-            - Clearly listed with context and any owners or timelines mentioned
+            (clearly listed with context, owners, and timelines where mentioned)
 
             **Topic Tags**
-            - List of the most relevant tags
+            (list of the 8–12 most relevant tags, comma-separated)
 
             **Suggested Wiki Headings**
-            - List of logical section headings for a wiki page on this video
+            (list of logical section headings for a future wiki page on this video)
 
-            Write in clear, professional documentation tone. Eliminate redundancy. Prioritize accuracy and usefulness.
+            Additional rules:
+            - Write in clear, professional documentation tone.
+            - Eliminate all redundancy.
+            - Prioritize accuracy, usefulness, and merge-ability (make every bullet and sentence self-contained so it can later be combined with other summaries).
+            - Total output length should feel concise and wiki-like — never verbose.
+            - Do not add any extra commentary or explanations outside the requested sections.
             """;
 
-    public EventHandlerTranscriptLogicallyOrganizedToTranscriptExecutiveSummary(EventStream<TranscriptLogicallyOrganized> eventStream,
-                                                                                TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository,
-                                                                                WebClient.Builder webClientBuilder,
-                                                                                ObjectMapper objectMapper,
-                                                                                EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream) {
-        this.eventStream = eventStream;
-        this.transcriptExecutiveSummaryRepository = transcriptExecutiveSummaryRepository;
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
-        this.objectMapper = objectMapper;
-        this.wikiReadyTranscriptEventStream = wikiReadyTranscriptEventStream;
-    }
+
 
     @PostConstruct
     public void subscribe() {
-        subscription = eventStream.getEventStream()
-                .flatMap(event -> processSimplifiedTranscriptEvent(event)
-                        .doOnError(error -> logger.error("Error processing event for SimplifiedTranscript id: {}", event.getId(), error))
-                        .onErrorResume(e -> Mono.empty()) // Continue processing other events
-                )
+        eventStream.getEventStream()
+                .flatMap(this::processEvent, llmConfig.getThreadPoolSize())
                 .subscribe(
-                        null, // onNext
-                        error -> logger.error("Error in event stream subscription", error),
-                        () -> logger.info("Event stream completed")
+                        null,
+                        error -> log.error("Error in event stream subscription", error),
+                        () -> log.info("Event stream completed")
                 );
-        logger.info("Subscribed to SimplifiedTranscript event stream");
+        log.info("Subscribed to TranscriptLogicallyOrganized event stream");
+    }
+
+    private Mono<Void> processEvent(TranscriptLogicallyOrganized event) {
+        return Mono.fromCallable(() -> {
+            concurrencySemaphore.acquire();
+            return event;
+        })
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMap(this::processSimplifiedTranscriptEvent)
+        .doOnError(error -> log.error("Error processing event for id: {}", event.getId(), error))
+        .onErrorResume(e -> Mono.empty())
+        .doFinally(signalType -> concurrencySemaphore.release());
     }
 
     private Mono<Void> processSimplifiedTranscriptEvent(TranscriptLogicallyOrganized transcriptLogicallyOrganized) {
-        logger.info("Processing event for SimplifiedTranscript id: {}", transcriptLogicallyOrganized.getId());
+        log.info("Processing event for TranscriptLogicallyOrganized id: {}", transcriptLogicallyOrganized.getId());
 
         return transcriptExecutiveSummaryRepository.findById(transcriptLogicallyOrganized.getId())
                 .flatMap(existing -> {
-                    logger.warn("WikiReadyTranscript already exists for SimplifiedTranscript id: {}, discarding event", transcriptLogicallyOrganized.getId());
+                    log.warn("TranscriptExecutiveSummary already exists for id: {}, discarding event", transcriptLogicallyOrganized.getId());
                     return Mono.empty();
                 })
                 .switchIfEmpty(Mono.defer(() -> createWikiReadyTranscript(transcriptLogicallyOrganized)))
@@ -100,30 +111,25 @@ public class EventHandlerTranscriptLogicallyOrganizedToTranscriptExecutiveSummar
     }
 
     private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(TranscriptLogicallyOrganized transcriptLogicallyOrganized) {
-        String prompt = PROMPT_TEMPLATE.replace("{{SIMPLIFIED_TRANSCRIPT_DATA}}", transcriptLogicallyOrganized.getResult());
+        String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", transcriptLogicallyOrganized.getResult());
 
         return callLLM(prompt)
                 .flatMap(result -> {
-                    TranscriptExecutiveSummary wikiReadyTranscript = new TranscriptExecutiveSummary();
-                    wikiReadyTranscript.setId(UUID.randomUUID());
-                    wikiReadyTranscript.setTranscriptLogicallyOrganizedId(transcriptLogicallyOrganized.getId());
-                    wikiReadyTranscript.setResult(result);
-                    wikiReadyTranscript.setCreatedAt(LocalDateTime.now());
-                    wikiReadyTranscript.setUpdatedAt(LocalDateTime.now());
-                    return transcriptExecutiveSummaryRepository.save(wikiReadyTranscript);
+                    TranscriptExecutiveSummary summary = new TranscriptExecutiveSummary();
+                    summary.setId(UUID.randomUUID());
+                    summary.setTranscriptLogicallyOrganizedId(transcriptLogicallyOrganized.getId());
+                    summary.setResult(result);
+                    summary.setCreatedAt(LocalDateTime.now());
+                    summary.setUpdatedAt(LocalDateTime.now());
+                    return transcriptExecutiveSummaryRepository.save(summary);
                 })
                 .flatMap(saved -> wikiReadyTranscriptEventStream.publish(saved).thenReturn(saved))
-                .doOnNext(saved -> logger.info("Saved and published WikiReadyTranscript id: {} for SimplifiedTranscript id: {}", saved.getId(), transcriptLogicallyOrganized.getId()))
-                .doOnError(error -> {
-                    logger.error("Error processing WikiReadyTranscript for SimplifiedTranscript id: {}", transcriptLogicallyOrganized.getId(), error);
-                    // Log stack trace
-                    for (StackTraceElement element : error.getStackTrace()) {
-                        logger.error(element.toString());
-                    }
-                });
+                .doOnNext(saved -> log.info("Saved and published TranscriptExecutiveSummary id: {} for TranscriptLogicallyOrganized id: {}", saved.getId(), transcriptLogicallyOrganized.getId()))
+                .doOnError(error -> log.error("Error processing summary for id: {}", transcriptLogicallyOrganized.getId(), error));
     }
 
     private Mono<String> callLLM(String prompt) {
+        WebClient webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -132,10 +138,7 @@ public class EventHandlerTranscriptLogicallyOrganizedToTranscriptExecutiveSummar
                 .bodyToMono(LLMResponse.class)
                 .map(LLMResponse::getResult)
                 .onErrorResume(e -> {
-                    logger.error("Error calling LLM", e);
-                    for (StackTraceElement element : e.getStackTrace()) {
-                        logger.error(element.toString());
-                    }
+                    log.error("Error calling LLM", e);
                     return Mono.error(e);
                 });
     }

@@ -1,112 +1,222 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
+import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptsHierarchicalRollupRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
-import tools.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.chaostensor.video_notes_to_wiki.util.TokenEstimator;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup implements EventHandler<TranscriptExecutiveSummary> {
-
-    private static final Logger logger = LoggerFactory.getLogger(EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup.class);
 
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
     private final TranscriptsHierarchicalRollupRepository transcriptsHierarchicalRollupRepository;
-    private final WebClient webClient;
-    private final ObjectMapper objectMapper;
+    private final WebClient.Builder webClientBuilder;
     private final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream;
-    private Disposable subscription;
+    private final LlmConfig llmConfig;
+    private final TokenEstimator tokenEstimator;
 
-    private static final String COMPRESSION_PROMPT_TEMPLATE = """
-            Compress the following collection of wiki-ready transcripts into a condensed summary that retains all key information, insights, action items, and topic tags. Reduce the total length to fit within a single LLM context window while preserving the most important details and structure.
+    private Semaphore concurrencySemaphore;
 
-            Wiki-ready transcripts:
+    private static final String HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE = """
+            You are performing hierarchical summarization to create the next layer of wiki documentation (Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}).
 
-            {{ALL_WIKI_READY_TRANSCRIPTS}}
+             You will be given a set of Layer 1 executive summaries from multiple related videos/recordings. Your job is to synthesize them into one cohesive Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}} summary.
 
-            Provide the compressed summary in a structured format.
+             Combined input length of all Layer 1 summaries in this chunk: {{TOTAL_INPUT_TOKENS_OR_WORDS}} (approximately {{APPROX_WORD_COUNT}} words).
+
+             Produce a single Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}} summary that is roughly 30% of the combined input length (target ≈ {{TARGET_WORD_COUNT}} words or fewer). Focus on maximum information density while preserving every critical insight, decision, tradeoff, action item, and unique detail.
+
+             First output this exact metadata header:
+             **Sources Covered:** [list the Source IDs or Titles from the Layer 1 summaries, comma-separated]
+             **Layer:** {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}
+             **Core Abstract:** [one crisp sentence capturing the overarching theme across all sources in this chunk]
+
+             Then produce exactly these sections (use the exact headings below):
+
+             **Executive Summary**
+             (3–5 sentences maximum, extremely high signal density)
+
+             **Key Insights & Takeaways**
+             (prioritized bullet list — aggressively merge and deduplicate across all sources; aim for 6–12 bullets total)
+
+             **Technical Concepts & Decisions**
+             (explain important ideas, tradeoffs, and architecture decisions clearly — synthesize and consolidate)
+
+             **Action Items & Open Questions**
+             (clearly listed with context, owners, and timelines; merge duplicates and note any cross-video dependencies)
+
+             **Topic Tags**
+             (8–15 most relevant tags for the entire chunk, comma-separated)
+
+             **Suggested Wiki Headings**
+             (logical section headings that would work for a combined wiki page covering all sources in this chunk)
+
+             Rules:
+             - Synthesize, do not just concatenate. Eliminate all redundancy across the different Layer 1 summaries.
+             - Preserve every unique or high-value piece of information — do not drop anything important.
+             - Maintain the same professional wiki documentation tone.
+             - Make every bullet and sentence self-contained and merge-ready for future layers.
+             - Output ONLY the requested sections and metadata. No extra commentary.
             """;
 
-    public EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup(EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream,
-                                                                                                    TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository,
-                                                                                                    TranscriptsHierarchicalRollupRepository transcriptsHierarchicalRollupRepository,
-                                                                                                    WebClient.Builder webClientBuilder,
-                                                                                                    ObjectMapper objectMapper,
-                                                                                                    EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream) {
-        this.wikiReadyTranscriptEventStream = wikiReadyTranscriptEventStream;
-        this.transcriptExecutiveSummaryRepository = transcriptExecutiveSummaryRepository;
-        this.transcriptsHierarchicalRollupRepository = transcriptsHierarchicalRollupRepository;
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
-        this.objectMapper = objectMapper;
-        this.compressedTranscriptsEventStream = compressedTranscriptsEventStream;
+    @PostConstruct
+    public void init() {
+        this.concurrencySemaphore = new Semaphore(llmConfig.getThreadPoolSize());
     }
 
     @PostConstruct
     public void subscribe() {
-        subscription = wikiReadyTranscriptEventStream.getEventStream()
-            .flatMap(event -> processWikiReadyTranscriptEvent(event)
-                .doOnError(error -> logger.error("Error processing event for TranscriptExecutiveSummary id: {}", event.getId(), error))
-                .onErrorResume(e -> Mono.empty()) // Continue processing other events
-            )
-            .subscribe(
-                null, // onNext
-                error -> logger.error("Error in event stream subscription", error),
-                () -> logger.info("Event stream completed")
-            );
-        logger.info("Subscribed to TranscriptExecutiveSummary event stream");
+        wikiReadyTranscriptEventStream.getEventStream()
+                .flatMap(this::processEvent, llmConfig.getThreadPoolSize())
+                .subscribe(
+                    null,
+                    error -> log.error("Error in event stream subscription", error),
+                    () -> log.info("Event stream completed")
+                );
+        log.info("Subscribed to TranscriptExecutiveSummary event stream");
     }
 
-    private Mono<Void> processWikiReadyTranscriptEvent(TranscriptExecutiveSummary transcriptExecutiveSummary) {
-        logger.info("Processing compression for WikiReadyTranscript id: {}", transcriptExecutiveSummary.getId());
+    private Mono<Void> processEvent(TranscriptExecutiveSummary event) {
+        return Mono.fromCallable(() -> {
+            concurrencySemaphore.acquire();
+            return event;
+        })
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMap(this::performHierarchicalRollup)
+        .doOnError(error -> log.error("Error processing rollup for id: {}", event.getId(), error))
+        .onErrorResume(e -> Mono.empty())
+        .doFinally(signalType -> concurrencySemaphore.release());
+    }
+
+    private Mono<Void> performHierarchicalRollup(TranscriptExecutiveSummary triggerEvent) {
+        log.info("Starting hierarchical rollup triggered by: {}", triggerEvent.getId());
 
         return transcriptExecutiveSummaryRepository.findAll()
                 .collectList()
-                .flatMap(allTranscripts -> {
-                    if (allTranscripts.isEmpty()) {
-                        logger.warn("No WikiReadyTranscripts found");
-                        return Mono.empty();
-                    } else {
-                        String allTranscriptsText = allTranscripts.stream()
-                                .map(TranscriptExecutiveSummary::getResult)
-                                .collect(Collectors.joining("\n\n"));
-                        String prompt = COMPRESSION_PROMPT_TEMPLATE.replace("{{ALL_WIKI_READY_TRANSCRIPTS}}", allTranscriptsText);
-                        return callLLM(prompt)
-                                .flatMap(compressedResult -> {
-                                    TranscriptsHierarchicalRollup compressed = new TranscriptsHierarchicalRollup();
-                                    compressed.setId(UUID.randomUUID());
-                                    compressed.setCompressedResult(compressedResult);
-                                    compressed.setCreatedAt(LocalDateTime.now());
-                                    compressed.setUpdatedAt(LocalDateTime.now());
-                                    return transcriptsHierarchicalRollupRepository.save(compressed);
-                                })
-                                .flatMap(saved -> compressedTranscriptsEventStream.publish(saved).thenReturn(saved))
-                                .doOnNext(saved -> logger.info("Saved and published CompressedTranscripts id: {}", saved.getId()))
-                                .then();
-                    }
-                })
-                .onErrorResume(e -> {
-                    logger.error("Error processing compression for WikiReadyTranscript id: {}", transcriptExecutiveSummary.getId(), e);
-                    return Mono.empty();
-                });
+                .flatMap(this::chunkAndSummarizeIteratively)
+                .flatMap(finalSummary -> saveAndPublishRollup(finalSummary))
+                .then();
+    }
+
+    private Mono<String> chunkAndSummarizeIteratively(List<TranscriptExecutiveSummary> allSummaries) {
+        if (allSummaries.isEmpty()) {
+            return Mono.empty();
+        }
+
+        return Mono.fromCallable(() -> performIterativeSummarization(allSummaries, 2))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private String performIterativeSummarization(List<TranscriptExecutiveSummary> summaries, int initialLayerNumber) {
+        List<String> currentSummaries = summaries.stream()
+                .map(TranscriptExecutiveSummary::getResult)
+                .collect(Collectors.toList());
+
+        int[] layerNumber = {initialLayerNumber};
+        while (true) {
+            int totalTokens = currentSummaries.stream()
+                    .mapToInt(tokenEstimator::estimateTokens)
+                    .sum();
+
+            if (totalTokens <= llmConfig.getContextWindowTokens() - llmConfig.getPromptOverheadTokens()) {
+                // Can process all at once
+                if (currentSummaries.size() == 1) {
+                    return currentSummaries.get(0);
+                }
+                return summarizeChunk(currentSummaries, layerNumber[0]);
+            }
+
+            // Need to chunk
+            List<List<String>> chunks = createChunks(currentSummaries, llmConfig.getMaxChunkTokens());
+            List<String> newSummaries = chunks.stream()
+                    .map(chunk -> summarizeChunk(chunk, layerNumber[0]))
+                    .collect(Collectors.toList());
+
+            // Check if we're making progress
+            int newTotalTokens = newSummaries.stream()
+                    .mapToInt(tokenEstimator::estimateTokens)
+                    .sum();
+            double reduction = (double) totalTokens / newTotalTokens;
+            if (reduction < llmConfig.getReductionRatio() * 1.1) { // Allow some tolerance
+                if (newSummaries.size() == 1) {
+                    throw new IllegalStateException("Cannot reduce single chunk further. Config may be invalid.");
+                }
+            }
+
+            currentSummaries = newSummaries;
+            layerNumber[0]++;
+        }
+    }
+
+    private List<List<String>> createChunks(List<String> summaries, int maxTokensPerChunk) {
+        List<List<String>> chunks = new java.util.ArrayList<>();
+        List<String> currentChunk = new java.util.ArrayList<>();
+        int currentTokens = 0;
+
+        for (String summary : summaries) {
+            int tokens = tokenEstimator.estimateTokens(summary);
+            if (currentTokens + tokens > maxTokensPerChunk && !currentChunk.isEmpty()) {
+                chunks.add(new java.util.ArrayList<>(currentChunk));
+                currentChunk.clear();
+                currentTokens = 0;
+            }
+            currentChunk.add(summary);
+            currentTokens += tokens;
+        }
+
+        if (!currentChunk.isEmpty()) {
+            chunks.add(currentChunk);
+        }
+
+        return chunks;
+    }
+
+    private String summarizeChunk(List<String> chunk, int layerNumber) {
+        String combinedInput = String.join("\n\n", chunk);
+        int totalTokens = tokenEstimator.estimateTokens(combinedInput);
+        int approxWords = tokenEstimator.estimateWordCount(combinedInput);
+        int targetWords = (int) Math.ceil(approxWords * llmConfig.getReductionRatio());
+
+        String prompt = HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE
+                .replace("{{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}", String.valueOf(layerNumber))
+                .replace("{{TOTAL_INPUT_TOKENS_OR_WORDS}}", totalTokens + " tokens")
+                .replace("{{APPROX_WORD_COUNT}}", String.valueOf(approxWords))
+                .replace("{{TARGET_WORD_COUNT}}", String.valueOf(targetWords))
+                + "\n\nLayer 1 summaries:\n" + combinedInput;
+
+        // Call LLM synchronously in this context
+        try {
+            return callLLM(prompt).block();
+        } catch (Exception e) {
+            log.error("Failed to summarize chunk at layer {}", layerNumber, e);
+            throw new RuntimeException("LLM summarization failed", e);
+        }
     }
 
     private Mono<String> callLLM(String prompt) {
+        WebClient webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -115,16 +225,20 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 .bodyToMono(LLMResponse.class)
                 .map(LLMResponse::getResult)
                 .onErrorResume(e -> {
-                    logger.error("Error calling LLM for compression", e);
+                    log.error("Error calling LLM", e);
                     return Mono.error(e);
                 });
     }
 
-    // Optionally, for shutdown
-    // @PreDestroy
-    // public void unsubscribe() {
-    //     if (subscription != null) {
-    //         subscription.dispose();
-    //     }
-    // }
+    private Mono<TranscriptsHierarchicalRollup> saveAndPublishRollup(String summary) {
+        TranscriptsHierarchicalRollup rollup = new TranscriptsHierarchicalRollup();
+        rollup.setId(UUID.randomUUID());
+        rollup.setCompressedResult(summary);
+        rollup.setCreatedAt(LocalDateTime.now());
+        rollup.setUpdatedAt(LocalDateTime.now());
+
+        return transcriptsHierarchicalRollupRepository.save(rollup)
+                .flatMap(saved -> compressedTranscriptsEventStream.publish(saved).thenReturn(saved))
+                .doOnNext(saved -> log.info("Saved and published hierarchical rollup id: {}", saved.getId()));
+    }
 }
