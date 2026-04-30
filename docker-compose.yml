@@ -23,6 +23,7 @@ services:
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
       OLLAMA_URL: http://ollama:11434/v1
+      LANCEDB_URL: http://lancedb:8000
     volumes: # TODO make the local dir configurable
       - ./media-input:./media-input
 
@@ -32,6 +33,14 @@ services:
       - "11434:11434"
     volumes:
       - ./ollama-models:/root/.ollama
+    restart: unless-stopped
+
+  lancedb:
+    image: lancedb/lancedb:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./lancedb-data:/data
     restart: unless-stopped
 
   # Whisper wrapper is hosted as an external service, so that we can scale it independently as it is loading the models and not handling end user requests directly.
