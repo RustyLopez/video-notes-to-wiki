@@ -106,6 +106,29 @@
 <!--			<groupId>org.springframework.ai</groupId>-->
 <!--			<artifactId>spring-ai-starter-vector-store-chroma</artifactId>-->
 <!--		</dependency>-->
+
+		<!-- Source: https://mvnrepository.com/artifact/io.jchunk/jchunk-semantic -->
+		<dependency>
+			<groupId>io.jchunk</groupId>
+			<artifactId>jchunk-semantic</artifactId>
+			<version>0.0.6</version>
+			<scope>compile</scope>
+		</dependency>
+		<!-- Source: https://mvnrepository.com/artifact/io.jchunk/jchunk-recursive-character -->
+		<dependency>
+			<groupId>io.jchunk</groupId>
+			<artifactId>jchunk-recursive-character</artifactId>
+			<version>0.0.6</version>
+			<scope>compile</scope>
+		</dependency>
+		<!-- Source: https://mvnrepository.com/artifact/io.jchunk/jchunk-fixed -->
+		<dependency>
+			<groupId>io.jchunk</groupId>
+			<artifactId>jchunk-fixed</artifactId>
+			<version>0.0.6</version>
+			<scope>compile</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-tika-document-reader</artifactId>
