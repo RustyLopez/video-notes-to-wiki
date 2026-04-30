@@ -1,7 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
@@ -22,9 +22,9 @@ import java.util.concurrent.Semaphore;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class EventHandlerTranscriptLogicallyOrganizedToTranscriptExecutiveSummary implements EventHandler<TranscriptLogicallyOrganized> {
+public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary implements EventHandler<TranscriptWithEmbeddings> {
 
-    private final EventStream<TranscriptLogicallyOrganized> eventStream;
+    private final EventStream<TranscriptWithEmbeddings> eventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
     private final WebClient.Builder webClientBuilder;
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
@@ -83,49 +83,50 @@ public class EventHandlerTranscriptLogicallyOrganizedToTranscriptExecutiveSummar
                         error -> log.error("Error in event stream subscription", error),
                         () -> log.info("Event stream completed")
                 );
-        log.info("Subscribed to TranscriptLogicallyOrganized event stream");
+        log.info("Subscribed to TranscriptWithEmbeddings event stream");
     }
 
-    private Mono<Void> processEvent(TranscriptLogicallyOrganized event) {
+    private Mono<Void> processEvent(TranscriptWithEmbeddings event) {
         return Mono.fromCallable(() -> {
             concurrencySemaphore.acquire();
             return event;
         })
         .subscribeOn(Schedulers.boundedElastic())
-        .flatMap(this::processSimplifiedTranscriptEvent)
+                .flatMap(this::processTranscriptWithEmbeddingsEvent)
         .doOnError(error -> log.error("Error processing event for id: {}", event.getId(), error))
         .onErrorResume(e -> Mono.empty())
         .doFinally(signalType -> concurrencySemaphore.release());
     }
 
-    private Mono<Void> processSimplifiedTranscriptEvent(TranscriptLogicallyOrganized transcriptLogicallyOrganized) {
-        log.info("Processing event for TranscriptLogicallyOrganized id: {}", transcriptLogicallyOrganized.getId());
+    private Mono<Void> processTranscriptWithEmbeddingsEvent(TranscriptWithEmbeddings transcriptWithEmbeddings) {
+        log.info("Processing event for TranscriptWithEmbeddings id: {}", transcriptWithEmbeddings.getId());
 
-        return transcriptExecutiveSummaryRepository.findById(transcriptLogicallyOrganized.getId())
+        return transcriptExecutiveSummaryRepository.findById(transcriptWithEmbeddings.getId())
                 .flatMap(existing -> {
-                    log.warn("TranscriptExecutiveSummary already exists for id: {}, discarding event", transcriptLogicallyOrganized.getId());
+                    log.warn("TranscriptExecutiveSummary already exists for id: {}, discarding event", transcriptWithEmbeddings.getId());
                     return Mono.empty();
                 })
-                .switchIfEmpty(Mono.defer(() -> createWikiReadyTranscript(transcriptLogicallyOrganized)))
+                .switchIfEmpty(Mono.defer(() -> createWikiReadyTranscript(transcriptWithEmbeddings)))
                 .then();
     }
 
-    private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(TranscriptLogicallyOrganized transcriptLogicallyOrganized) {
-        String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", transcriptLogicallyOrganized.getResult());
+    private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(TranscriptWithEmbeddings transcriptWithEmbeddings) {
+        String structuredAnalysis = String.join(" ", transcriptWithEmbeddings.getChunks());
+        String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
 
         return callLLM(prompt)
                 .flatMap(result -> {
                     TranscriptExecutiveSummary summary = new TranscriptExecutiveSummary();
                     summary.setId(UUID.randomUUID());
-                    summary.setTranscriptLogicallyOrganizedId(transcriptLogicallyOrganized.getId());
+                    summary.setTranscriptWithEmbeddingsId(transcriptWithEmbeddings.getId());
                     summary.setResult(result);
                     summary.setCreatedAt(LocalDateTime.now());
                     summary.setUpdatedAt(LocalDateTime.now());
                     return transcriptExecutiveSummaryRepository.save(summary);
                 })
                 .flatMap(saved -> wikiReadyTranscriptEventStream.publish(saved).thenReturn(saved))
-                .doOnNext(saved -> log.info("Saved and published TranscriptExecutiveSummary id: {} for TranscriptLogicallyOrganized id: {}", saved.getId(), transcriptLogicallyOrganized.getId()))
-                .doOnError(error -> log.error("Error processing summary for id: {}", transcriptLogicallyOrganized.getId(), error));
+                .doOnNext(saved -> log.info("Saved and published TranscriptExecutiveSummary id: {} for TranscriptWithEmbeddings id: {}", saved.getId(), transcriptWithEmbeddings.getId()))
+                .doOnError(error -> log.error("Error processing summary for id: {}", transcriptWithEmbeddings.getId(), error));
     }
 
     private Mono<String> callLLM(String prompt) {

@@ -1,7 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptLogicallyOrganized;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.entity.Wiki;
@@ -17,7 +17,7 @@ public class EventConfig {
     }
 
     @Bean
-    public EventStream<TranscriptLogicallyOrganized> simplifiedTranscriptEventPublisher() {
+    public EventStream<TranscriptWithEmbeddings> simplifiedTranscriptEventPublisher() {
         return new EventStreamInMemoryImpl<>();
     }
 

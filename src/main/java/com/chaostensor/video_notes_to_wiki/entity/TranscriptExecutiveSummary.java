@@ -16,7 +16,7 @@ public class TranscriptExecutiveSummary {
 
     @Id
     private UUID id;
-    private UUID transcriptLogicallyOrganizedId;
+    private UUID transcriptWithEmbeddingsId;
     private String result;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
