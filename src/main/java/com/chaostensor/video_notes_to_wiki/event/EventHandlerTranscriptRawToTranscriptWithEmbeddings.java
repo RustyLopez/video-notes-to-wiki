@@ -8,7 +8,8 @@ import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.config.ChunkingConfig;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import io.jchunk.fixed.FixedChunker;
+import io.jchunk.semantic.SemanticChunker;
+import io.jchunk.Embedder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -100,8 +101,10 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings);
                     }
 
-                    // Perform simple chunking for now
-                    List<String> chunks = List.of(transcriptContent); // Single chunk for now
+                    // Perform semantic chunking
+                    Embedder embedder = text -> embeddingService.embedTexts(List.of(text)).get(0);
+                    SemanticChunker chunker = new SemanticChunker(embedder);
+                    List<String> chunks = chunker.split(transcriptContent);
 
                     // Generate embeddings for chunks
                     List<List<Float>> embeddings = embeddingService.embedTexts(chunks);
