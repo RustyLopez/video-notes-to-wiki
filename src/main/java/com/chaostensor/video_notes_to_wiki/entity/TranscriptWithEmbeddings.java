@@ -16,7 +16,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class TranscriptWithEmbeddings {
 
-    public record ChunkEmbedding(String chunk, List<Float> embedding) {}
+    public record ChunkEmbedding(String chunk, float[] embedding) {}
 
     @Id
     private UUID id;

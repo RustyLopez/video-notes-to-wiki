@@ -1,7 +1,14 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
+import io.jchunk.core.chunk.Chunk;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingRequest;
+import org.springframework.ai.embedding.EmbeddingResponse;
+import org.springframework.ai.ollama.api.OllamaEmbeddingOptions;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -14,16 +21,19 @@ public class EmbeddingService {
 
     private final EmbeddingModel embeddingModel;
 
-    public List<List<Float>> embedTexts(List<String> texts) {
-        List<float[]> embeddings = embeddingModel.embed(texts);
-        return embeddings.stream()
-                .map(arr -> {
-                    List<Float> list = new java.util.ArrayList<>();
-                    for (float f : arr) {
-                        list.add(f);
-                    }
-                    return list;
-                })
-                .collect(Collectors.toList());
+    @Value("${app.llm.embeddings.models.preferred}")
+    private final String preferredEmbeddingModel;
+
+    public List<float[]> embed(List<String> chunks) {
+
+        return this.embeddingModel.call(
+                new EmbeddingRequest(chunks,
+                        OllamaEmbeddingOptions.builder()
+                                .model(preferredEmbeddingModel)
+                        .truncate(false)
+                        .build())
+        ).getResults().stream().map(Embedding::getOutput).collect(Collectors.toList());
+
+
     }
 }

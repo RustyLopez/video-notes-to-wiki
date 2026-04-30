@@ -12,16 +12,22 @@ spring:
       base-url: ${app.llm.url}
       init:
         chat:
-          additional-model: qwen2.5:7b
+          additional-model: ${app.llm.chat.models.preferred}
         embedding:
-          additional-model: jinaai/jina-embeddings-v2-base-en:latest
-        pull-model-strategy: when_missing
+          additional-model: ${app.llm.embeddings.models.preferred}
+        pull-model-strategy: when_missing # NOTE we issue ar eques tot hte remote olllma service to have it pull. We are not running tha locally in the jvm or even the same.. service instance necessarily
         pull-model-strategy.max-retries: 2
 
 app:
   llm:
+    chat:
+      models:
+        preferred: jinaai/jina-embeddings-v4
+    embeddings:
+      models:
+        preferred: Qwen/Qwen3.5-9B
     url: ${OLLAMA_URL:http://localhost:8080/v1}
-    contextWindowTokens: 4096
+    contextWindowTokens: 4096 # TODO need to be absed on cofngured lllm for chat.
     maxChunkTokens: 4096
     reductionRatio: 0.3
     threadPoolSize: 5
