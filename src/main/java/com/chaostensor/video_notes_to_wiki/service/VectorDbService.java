@@ -29,6 +29,16 @@ public interface VectorDbService {
     List<VectorSearchResult> searchSimilar(float[] queryEmbedding, int topK);
 
     /**
+     * Queries chunks for a specific transcript based on chunk embeddings.
+     *
+     * @param transcriptId The ID of the transcript
+     * @param queryEmbeddings List of embeddings to query with
+     * @param maxPromptContextLength Maximum context length for the prompt
+     * @return List of relevant chunks
+     */
+    List<String> queryChunks(String transcriptId, List<float[]> queryEmbeddings, int maxPromptContextLength);
+
+    /**
      * Result of a vector similarity search.
      */
     record VectorSearchResult(String chunk, float[] embedding, double similarityScore) {}

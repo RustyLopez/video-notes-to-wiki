@@ -4,7 +4,10 @@ import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Placeholder implementation of VectorDbService.
@@ -13,11 +16,14 @@ import java.util.List;
 @Service
 public class PlaceholderVectorDbService implements VectorDbService {
 
+    private final Map<String, List<TranscriptWithEmbeddings.ChunkEmbedding>> storedChunks = new HashMap<>();
+
     @Override
     public void saveChunkEmbeddings(String transcriptId, List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings) {
         // TODO: Implement actual vector database storage
-        // For now, just log that chunks would be saved
-        System.out.println("Placeholder: Would save " + chunkEmbeddings.size() + " chunks for transcript " + transcriptId);
+        // For now, store in memory
+        storedChunks.put(transcriptId, new ArrayList<>(chunkEmbeddings));
+        System.out.println("Placeholder: Saved " + chunkEmbeddings.size() + " chunks for transcript " + transcriptId);
     }
 
     @Override
@@ -25,5 +31,16 @@ public class PlaceholderVectorDbService implements VectorDbService {
         // TODO: Implement actual vector similarity search
         // Return empty list for now
         return new ArrayList<>();
+    }
+
+    @Override
+    public List<String> queryChunks(String transcriptId, List<float[]> queryEmbeddings, int maxPromptContextLength) {
+        // TODO: Implement actual querying logic
+        // For now, return all chunks for the transcript, ignoring queryEmbeddings and maxPromptContextLength
+        List<TranscriptWithEmbeddings.ChunkEmbedding> chunks = storedChunks.get(transcriptId);
+        if (chunks == null) {
+            return new ArrayList<>();
+        }
+        return chunks.stream().map(TranscriptWithEmbeddings.ChunkEmbedding::chunk).toList();
     }
 }

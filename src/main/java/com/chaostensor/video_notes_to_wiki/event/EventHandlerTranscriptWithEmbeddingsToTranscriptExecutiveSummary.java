@@ -6,6 +6,7 @@ import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
+import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -16,6 +17,7 @@ import reactor.core.scheduler.Schedulers;
 
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
@@ -30,6 +32,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     private final WebClient.Builder webClientBuilder;
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final LlmConfig llmConfig;
+    private final VectorDbService vectorDbService;
 
     private final Semaphore concurrencySemaphore;
 
@@ -112,7 +115,11 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     }
 
     private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(TranscriptWithEmbeddings transcriptWithEmbeddings) {
-        String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream().map(TranscriptWithEmbeddings.ChunkEmbedding::chunk).collect(Collectors.joining(" "));
+        List<float[]> queryEmbeddings = transcriptWithEmbeddings.getChunkEmbeddings().stream()
+                .map(TranscriptWithEmbeddings.ChunkEmbedding::embedding)
+                .toList();
+        List<String> relevantChunks = vectorDbService.queryChunks(transcriptWithEmbeddings.getId().toString(), queryEmbeddings, 100000);
+        String structuredAnalysis = String.join(" ", relevantChunks);
         String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
 
         return callLLM(prompt)
