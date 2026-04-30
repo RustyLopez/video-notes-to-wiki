@@ -18,7 +18,7 @@ public interface VectorDbService {
      * @param transcriptId The ID of the transcript these chunks belong to
      * @param chunkEmbeddings List of chunk embeddings to save
      */
-    Mono<Void> saveChunkEmbeddings(String transcriptId, List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings);
+    Mono<List<TranscriptWithEmbeddings.ChunkEmbedding>> saveChunkEmbeddings(String transcriptId, List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings);
 
     /**
      * Saves summary embedding to the vector database.

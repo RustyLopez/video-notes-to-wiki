@@ -2,6 +2,7 @@ package com.chaostensor.video_notes_to_wiki.service;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,11 +21,13 @@ public class PlaceholderVectorDbService implements VectorDbService {
     private final Map<String, List<TranscriptWithEmbeddings.ChunkEmbedding>> storedChunks = new HashMap<>();
 
     @Override
-    public void saveChunkEmbeddings(String transcriptId, List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings) {
+    public Mono<List<TranscriptWithEmbeddings.ChunkEmbedding>> saveChunkEmbeddings(String transcriptId, List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings) {
         // TODO: Implement actual vector database storage
         // For now, store in memory
         storedChunks.put(transcriptId, new ArrayList<>(chunkEmbeddings));
         System.out.println("Placeholder: Saved " + chunkEmbeddings.size() + " chunks for transcript " + transcriptId);
+
+        return Mono.just(chunkEmbeddings);// todo expec tthe actual vector db integration to have returned a mono to map or update this contract to return what it returns.
     }
 
     @Override
