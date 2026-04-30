@@ -13,24 +13,37 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import jakarta.annotation.PostConstruct;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
-import java.util.stream.Collectors;
 
-@Component
+/**
+ * See the docs in {@link EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup}. The problem with this approach is that, while simpler, it is also a
+ * lot more redundant to the strategy already used in the final wiki generate prompt step
+ * {@link EventHandlerTranscriptsHierarchicalRollupToWiki}. Which will invariably result in a lot of overlap and
+ * duplicated context being passed in to that request.  Therefore, if we are going to have an additional strategy like this
+ * to try and surface key aspects of the knowledge base for wiki inclusion, it should probably be using an actually
+ * distinct strategy for identifying that information. A hierarchical rollup is a valid alternative to a RAG for this
+ * purpose. And therefore the solution found in {@link EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup} likely offers more value than this one
+ * for attempting to get a second perspective on knowledge base information relevance.
+ *
+ * TODO: I'm retaining this for now. Whic his ab it of an anti-pattern. You should avoid retaining unused code.  But
+ * i'm not yet 100% certain that I want to move forward with the other approach.
+ */
+//@Component
 @RequiredArgsConstructor
-public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup implements EventHandler<TranscriptExecutiveSummary> {
+public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaRAG implements EventHandler<TranscriptExecutiveSummary> {
 
-    private static final Logger log = LoggerFactory.getLogger(EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup.class);
+    private static final Logger log = LoggerFactory.getLogger(EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaRAG.class);
 
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
@@ -44,49 +57,23 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     private Semaphore concurrencySemaphore;
 
     private static final String HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE = """
-            You are performing hierarchical summarization to create the next layer of wiki documentation (Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}).
-
-             You will be given a set of relevant chunks from multiple related videos/recordings. Your job is to synthesize them into one cohesive Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}} summary.
-
-              Combined input length of all relevant chunks: {{TOTAL_INPUT_TOKENS_OR_WORDS}} (approximately {{APPROX_WORD_COUNT}} words).
-
-              Produce a single Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}} summary that is roughly 30% of the combined input length (target ≈ {{TARGET_WORD_COUNT}} words or fewer). Focus on maximum information density while preserving every critical insight, decision, tradeoff, action item, and unique detail.
-
-              Relevant chunks:
-              {{RELEVANT_CHUNKS}}
-
-              First output this exact metadata header:
-              **Sources Covered:** [list the Source IDs or Titles from the relevant chunks, comma-separated]
-              **Layer:** {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}
-              **Core Abstract:** [one crisp sentence capturing the overarching theme across all sources in this chunk]
-
-              Then produce exactly these sections (use the exact headings below):
-
-              **Executive Summary**
-              (3–5 sentences maximum, extremely high signal density)
-
-              **Key Insights & Takeaways**
-              (prioritized bullet list — aggressively merge and deduplicate across all sources; aim for 6–12 bullets total)
-
-              **Technical Concepts & Decisions**
-              (explain important ideas, tradeoffs, and architecture decisions clearly — synthesize and consolidate)
-
-              **Action Items & Open Questions**
-              (clearly listed with context, owners, and timelines; merge duplicates and note any cross-video dependencies)
-
-              **Topic Tags**
-              (8–15 most relevant tags for the entire chunk, comma-separated)
-
-              **Suggested Wiki Headings**
-              (logical section headings that would work for a combined wiki page covering all sources in this chunk)
-
-              Rules:
-              - Synthesize, do not just concatenate. Eliminate all redundancy across the different relevant chunks.
-              - Preserve every unique or high-value piece of information — do not drop anything important.
-              - Maintain the same professional wiki documentation tone.
-              - Make every bullet and sentence self-contained and merge-ready for future layers.
-              - Output ONLY the requested sections and metadata. No extra commentary.
-             """;
+            You are an expert knowledge architect building a comprehensive internal wiki from a series of videos.
+            
+             Additional relevant chunks from the vector database:
+            
+             {{RELEVANT_CHUNKS}}
+            
+             Synthesize all of this into a coherent, hierarchical knowledge base. Produce:
+             1. **Master Executive Summary** — one strong paragraph covering the entire series
+             2. **Hierarchical Topic Structure** — organize the content into logical parent topics and subtopics (use markdown headings)
+             3. **Cross-Video Insights & Connections** — highlight how ideas from different videos relate, reinforce each other, or contradict
+             4. **Consolidated Action Item Tracker** — all action items with video references
+             5. **Recommended Wiki Structure** — suggest actual wiki pages with titles and outline of sections for each page
+             6. **Knowledge Gaps or Follow-up Topics** (if any)
+             Focus on creating something a new engineer could read and rapidly understand the key decisions, architecture, and current state of the project. Remove duplication across videos. Create clean hierarchy.
+            
+             Produce a summary that is roughly {{TARGET_NEXT_PROMPT_OCCUPY_PERCENT}}% of the maximum context length for a followup prompt (target ≈ {{TARGET_WORD_COUNT}} words or fewer). Focus on maximum information density while preserving every critical insight, decision, tradeoff, action item, and unique detail.
+            """;
 
     @PostConstruct
     public void init() {
@@ -136,11 +123,15 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         int approxWords = tokenEstimator.estimateWordCount(combinedChunks);
         int targetWords = (int) Math.ceil(approxWords * llmConfig.getReductionRatio());
 
+        int ragProducedMasterExecutiveSummaryMaxContextOccupationPercent = BigDecimal.valueOf(llmConfig.getRagProducedMasterExecutiveSummaryMaxContextOccupationRatio())
+                .multiply(new BigDecimal("100"))
+                .setScale(0, RoundingMode.FLOOR)
+                .toString();
+        int targetWordCount = tokenEstimator.estimateWordCount(llmConfig.getMaxChunkTokens()) * llmConfig.getRagProducedMasterExecutiveSummaryMaxContextOccupationRatio();
+
         String prompt = HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE
-                .replace("{{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}", "2")
-                .replace("{{TOTAL_INPUT_TOKENS_OR_WORDS}}", totalTokens + " tokens")
-                .replace("{{APPROX_WORD_COUNT}}", String.valueOf(approxWords))
-                .replace("{{TARGET_WORD_COUNT}}", String.valueOf(targetWords))
+                .replace("{{TARGET_NEXT_PROMPT_OCCUPY_PERCENT}}", ragProducedMasterExecutiveSummaryMaxContextOccupationPercent+"%")
+                .replace("{{TARGET_WORD_COUNT}}", String.valueOf(targetWordCount))
                 .replace("{{RELEVANT_CHUNKS}}", combinedChunks);
 
         // Call LLM synchronously in this context
