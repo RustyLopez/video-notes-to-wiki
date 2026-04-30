@@ -7,6 +7,16 @@ spring:
     password: password
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+  ai:
+    ollama:
+      base-url: ${app.llm.url}
+      init:
+        chat:
+          additional-model: qwen2.5:7b
+        embedding:
+          additional-model: jinaai/jina-embeddings-v2-base-en:latest
+        pull-model-strategy: when_missing
+        pull-model-strategy.max-retries: 2
 
 app:
   llm:
