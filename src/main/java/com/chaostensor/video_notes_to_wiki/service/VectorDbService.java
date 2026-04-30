@@ -1,6 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +18,7 @@ public interface VectorDbService {
      * @param transcriptId The ID of the transcript these chunks belong to
      * @param chunkEmbeddings List of chunk embeddings to save
      */
-    void saveChunkEmbeddings(String transcriptId, List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings);
+    Mono<Void> saveChunkEmbeddings(String transcriptId, List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings);
 
     /**
      * Saves summary embedding to the vector database.
@@ -48,6 +49,12 @@ public interface VectorDbService {
 
     /**
      * Gets the most relevant embeddings from the vector database.
+     *
+     *   Possible?
+     *
+     *   I changed the impl a bit so this is not technically needed at the moment.
+     *   But I can foresee future possible use cases for getting a quick list of themes or topics
+     *   most saturated in the knowledge base.
      *
      * @param topK Number of top relevant embeddings to return
      * @return List of most relevant embeddings

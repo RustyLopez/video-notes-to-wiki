@@ -9,6 +9,7 @@ import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
 import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
 
 import com.chaostensor.video_notes_to_wiki.repository.WikiRepository;
+import com.google.errorprone.annotations.Immutable;
 import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,9 +109,17 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
         String allTranscripts = transcriptsHierarchicalRollup.getCompressedResult();
 
         // Fetch most relevant embeddings and corresponding chunks
-        return Mono.fromCallable(() -> vectorDbService.getMostRelevantEmbeddings(100)) // Placeholder topK
+        /*
+         * This firs step is key to dding essentially a second degree of information from the hierarchical rollup, based
+         * on what was in the hierarchical rollup.
+         *
+         * Sot he rollup is a summary of summaries, but it would be lossy. HOWEVER. Embeddings from that summary of summaries
+         * can be used to go do one last search of the entire knowledge base to see if anything strongly correlating to that
+         * summary can be pulled in and added to the final context.
+         */
+        return Mono.fromCallable(() -> generateEmbeddingsFromHierarchicalRollup(transcriptsHierarchicalRollup.getCompressedResult())) // Placeholder topK
                 .subscribeOn(Schedulers.boundedElastic())
-                .map(relevantEmbeddings -> vectorDbService.queryAllChunks(relevantEmbeddings, 100000)) // Placeholder context window
+                .map(relevantEmbeddings -> vectorDbService.queryAllChunks(List.of(relevantEmbeddings), 100000)) // Placeholder context window
                 .flatMap(relevantChunks -> {
                     String combinedChunks = String.join("\n\n", relevantChunks);
                     String prompt = SYNTHESIS_PROMPT_TEMPLATE
@@ -138,6 +147,13 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                     }
                     return Mono.empty();
                 });
+    }
+
+    private float[] generateEmbeddingsFromHierarchicalRollup(final String compressedResult) {
+        // should we .. ch unk? do we need to ?
+        // in this case we um...  it's a query we aren't generating this to write..
+        // we just want everything. Not sure.
+        return embeddingService.embed(List.of(compressedResult)).get(0);
     }
 
     private Mono<Void> processWikiPostProcessing(Wiki wiki) {

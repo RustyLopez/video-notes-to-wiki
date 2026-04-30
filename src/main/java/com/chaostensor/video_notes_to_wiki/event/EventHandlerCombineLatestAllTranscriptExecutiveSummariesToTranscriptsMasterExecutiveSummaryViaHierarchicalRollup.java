@@ -2,26 +2,34 @@ package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptsHierarchicalRollupRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
+import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
+import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
 import com.chaostensor.video_notes_to_wiki.util.TokenEstimator;
+import io.jchunk.semantic.embedder.Embedder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import jakarta.annotation.PostConstruct;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +49,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup implements EventHandler<TranscriptExecutiveSummary> {
 
+    private static EmbeddingService embeddingService;
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
     private final TranscriptsHierarchicalRollupRepository transcriptsHierarchicalRollupRepository;
@@ -48,6 +57,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     private final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream;
     private final LlmConfig llmConfig;
     private final TokenEstimator tokenEstimator;
+    private final VectorDbService vectorDbService;
 
     private Semaphore concurrencySemaphore;
 
@@ -129,8 +139,11 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 .collectList()
                 .flatMap(this::chunkAndSummarizeIteratively)
                 .flatMap(finalSummary -> saveAndPublishRollup(finalSummary))
+
                 .then();
     }
+
+
 
     private Mono<String> chunkAndSummarizeIteratively(List<TranscriptExecutiveSummary> allSummaries) {
         if (allSummaries.isEmpty()) {
@@ -251,14 +264,90 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     }
 
     private Mono<TranscriptsHierarchicalRollup> saveAndPublishRollup(String summary) {
-        TranscriptsHierarchicalRollup rollup = new TranscriptsHierarchicalRollup();
-        rollup.setId(UUID.randomUUID());
-        rollup.setCompressedResult(summary);
-        rollup.setCreatedAt(LocalDateTime.now());
-        rollup.setUpdatedAt(LocalDateTime.now());
 
-        return transcriptsHierarchicalRollupRepository.save(rollup)
-                .flatMap(saved -> compressedTranscriptsEventStream.publish(saved).thenReturn(saved))
-                .doOnNext(saved -> log.info("Saved and published hierarchical rollup id: {}", saved.getId()));
+        return chunkOutputAndGenerateEmbeddings(summary).flatMap(chunkEmbeddings -> {
+            TranscriptsHierarchicalRollup rollup = new TranscriptsHierarchicalRollup();
+            rollup.setId(UUID.randomUUID());
+            rollup.setCompressedResult(summary);
+            rollup.setCreatedAt(LocalDateTime.now());
+            rollup.setUpdatedAt(LocalDateTime.now());
+            rollup.setChunksWithEmbeddings(chunkEmbeddings);
+
+            return transcriptsHierarchicalRollupRepository.save(rollup)
+                    .flatMap(saved -> compressedTranscriptsEventStream.publish(saved).thenReturn(saved))
+                    /**
+                     * NOTE saving ot a separte  datastore here so we need to... yeah
+                     * make stuff ideomtponetn avnd able to gete eventuallyc onsistent
+                     *
+                     * shodul be fine if we fail ehere the event consume shoudl fail
+                     *
+                     * fi the evnet ocnsuem failes ( well actualy confirm that on the sink.. )
+                     *
+                     *  then we re-process the event, we may end up overwriting the value in either
+                     *  of the two stores on a retry if one manage sto save.. should be fine.
+                     */
+                    .flatMap(saved -> saveAlsoToVectorDbWithEmbeddings(saved).thenReturn(saved))
+                    .doOnNext(saved -> log.info("Saved and published hierarchical rollup id: {}", saved.getId()));
+
+        });
+
+    }
+
+    private Mono<TranscriptsHierarchicalRollup> saveAlsoToVectorDbWithEmbeddings(final TranscriptsHierarchicalRollup saved) {
+
+        return vectorDbService.saveChunkEmbeddings(saved.getId().toString(), saved.getChunksWithEmbeddings()).thenReturn(saved);
+
+    }
+    private static Mono<List<TranscriptWithEmbeddings.ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
+        return Mono.fromCallable(() -> chunkByBulletPointsSectionHeadersAndDoubleNewlines(summary))
+                .flatMap(chunks -> {
+                    if (chunks.isEmpty()) {
+                        return Mono.empty();
+                    }
+
+                    return Flux.zip(
+                            Flux.fromIterable(chunks),
+                            Mono.fromCallable(() -> embeddingService.embed(chunks))
+                                    .flatMapMany(Flux::fromIterable)
+                    )
+                            .map(tuple -> {
+                                return new TranscriptWithEmbeddings.ChunkEmbedding(tuple.getT1(), tuple.getT2());
+                            })
+                            .collectList();
+                });
+    }
+
+    /**
+     * TODO decie a bette mrethod
+     * @param summary
+     * @return
+     */
+    public static List<String> chunkByBulletPointsSectionHeadersAndDoubleNewlines(final String summary) {
+
+        List<String> chunks = new ArrayList<>();
+        // Simple regex to split by level 1 headings (# )
+          // TODO confirm the U+2022 char is correctly here for the regex. right there, test teh
+        // regex in generaly
+        // may need..  yeah..
+        Pattern pattern = Pattern.compile("(#+|\\n\\n+|\\*+|\\u2022)");
+        Matcher matcher = pattern.matcher(summary);
+        int lastEnd = 0;
+        while (matcher.find()) {
+            if (lastEnd > 0) {
+                String chunk = summary.substring(lastEnd, matcher.start()).trim();
+                if (!chunk.isEmpty()) {
+                    chunks.add(chunk);
+                }
+            }
+            lastEnd = matcher.start();
+        }
+        // Add the last chunk
+        if (lastEnd < summary.length()) {
+            String chunk = summary.substring(lastEnd).trim();
+            if (!chunk.isEmpty()) {
+                chunks.add(chunk);
+            }
+        }
+        return chunks;
     }
 }
