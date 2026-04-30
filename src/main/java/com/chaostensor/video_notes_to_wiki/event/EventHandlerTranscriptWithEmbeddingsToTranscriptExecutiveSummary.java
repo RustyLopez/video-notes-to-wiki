@@ -18,6 +18,7 @@ import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -111,7 +112,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     }
 
     private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(TranscriptWithEmbeddings transcriptWithEmbeddings) {
-        String structuredAnalysis = String.join(" ", transcriptWithEmbeddings.getChunks());
+        String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream().map(TranscriptWithEmbeddings.ChunkEmbedding::chunk).collect(Collectors.joining(" "));
         String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
 
         return callLLM(prompt)

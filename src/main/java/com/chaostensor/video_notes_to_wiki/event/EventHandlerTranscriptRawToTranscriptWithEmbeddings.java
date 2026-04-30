@@ -101,12 +101,11 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                     List<String> chunks = List.of(transcriptContent); // Single chunk for now
 
                     // Generate embeddings for chunks - simplified for now
-                    List<List<Float>> embeddings = chunks.stream()
-                        .map(chunk -> List.of(0.1f, 0.2f, 0.3f)) // Placeholder embeddings
+                    List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = chunks.stream()
+                        .map(chunk -> new TranscriptWithEmbeddings.ChunkEmbedding(chunk, List.of(0.1f, 0.2f, 0.3f))) // Placeholder embeddings
                         .toList();
 
-                    transcriptWithEmbeddings.setChunks(chunks);
-                    transcriptWithEmbeddings.setEmbeddings(embeddings);
+                    transcriptWithEmbeddings.setChunkEmbeddings(chunkEmbeddings);
                     transcriptWithEmbeddings.setStatus(LlmStatus.COMPLETED);
                     transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
 
