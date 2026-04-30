@@ -10,6 +10,7 @@ spring:
 
 app:
   llm:
+    url: ${OLLAMA_URL:http://localhost:8082/llm}
     contextWindowTokens: 4096
     maxChunkTokens: 4096
     reductionRatio: 0.3

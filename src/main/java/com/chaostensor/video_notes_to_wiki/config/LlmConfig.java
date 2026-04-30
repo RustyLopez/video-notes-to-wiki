@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "app.llm")
 @Data
 public class LlmConfig {
+    private String url = "http://localhost:8082/llm";
     private int contextWindowTokens = 4096; // Default for GPT-3.5
     private int maxChunkTokens = 4096;
     private double reductionRatio = 0.3;

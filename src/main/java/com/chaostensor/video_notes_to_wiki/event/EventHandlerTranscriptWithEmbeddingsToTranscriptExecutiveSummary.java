@@ -131,7 +131,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     }
 
     private Mono<String> callLLM(String prompt) {
-        WebClient webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
+        WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)
