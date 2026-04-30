@@ -176,7 +176,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                     .mapToInt(tokenEstimator::estimateTokens)
                     .sum();
             double reduction = (double) totalTokens / newTotalTokens;
-            if (reduction < llmConfig.getReductionRatio() * 1.1) { // Allow some tolerance
+            if (reduction < llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio() * 1.1/* TODO no idea why this random arbitrary tolerance got added. If anything we want to erro ont he side of being LESS tolerant */) { // Allow some tolerance
                 if (newSummaries.size() == 1) {
                     throw new IllegalStateException("Cannot reduce single chunk further. Config may be invalid.");
                 }
@@ -214,7 +214,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         String combinedInput = String.join("\n\n", chunk);
         int totalTokens = tokenEstimator.estimateTokens(combinedInput);
         int approxWords = tokenEstimator.estimateWordCount(combinedInput);
-        int targetWords = (int) Math.ceil(approxWords * llmConfig.getReductionRatio());
+        int targetWords = (int) Math.ceil(approxWords * llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio());
 
 
 

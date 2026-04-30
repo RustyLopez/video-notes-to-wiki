@@ -44,6 +44,7 @@ import java.util.concurrent.Semaphore;
 public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaRAG implements EventHandler<TranscriptExecutiveSummary> {
 
     private static final Logger log = LoggerFactory.getLogger(EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaRAG.class);
+    public static final int PERCENT_SCALE = 2;
 
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
@@ -121,16 +122,18 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         String combinedChunks = String.join("\n\n", relevantChunks);
         int totalTokens = tokenEstimator.estimateTokens(combinedChunks);
         int approxWords = tokenEstimator.estimateWordCount(combinedChunks);
-        int targetWords = (int) Math.ceil(approxWords * llmConfig.getReductionRatio());
+        int targetWords = (int) Math.ceil(approxWords * llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio());
 
-        int ragProducedMasterExecutiveSummaryMaxContextOccupationPercent = BigDecimal.valueOf(llmConfig.getRagProducedMasterExecutiveSummaryMaxContextOccupationRatio())
+        String ragProducedMasterExecutiveSummaryMaxContextOccupationPercent = BigDecimal.valueOf(llmConfig.getRagProducedMasterExecutiveSummaryMaxContextOccupationRatio())
                 .multiply(new BigDecimal("100"))
                 .setScale(0, RoundingMode.FLOOR)
                 .toString();
-        int targetWordCount = tokenEstimator.estimateWordCount(llmConfig.getMaxChunkTokens()) * llmConfig.getRagProducedMasterExecutiveSummaryMaxContextOccupationRatio();
+        int targetWordCount = BigDecimal.valueOf((float)tokenEstimator.estimateMaxWordCountForMaxTokens(llmConfig.getMaxChunkTokens()) * llmConfig.getRagProducedMasterExecutiveSummaryMaxContextOccupationRatio())
+                .setScale(0, RoundingMode.FLOOR)
+                .intValue();
 
         String prompt = HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE
-                .replace("{{TARGET_NEXT_PROMPT_OCCUPY_PERCENT}}", ragProducedMasterExecutiveSummaryMaxContextOccupationPercent+"%")
+                .replace("{{TARGET_NEXT_PROMPT_OCCUPY_PERCENT}}", ragProducedMasterExecutiveSummaryMaxContextOccupationPercent)
                 .replace("{{TARGET_WORD_COUNT}}", String.valueOf(targetWordCount))
                 .replace("{{RELEVANT_CHUNKS}}", combinedChunks);
 
