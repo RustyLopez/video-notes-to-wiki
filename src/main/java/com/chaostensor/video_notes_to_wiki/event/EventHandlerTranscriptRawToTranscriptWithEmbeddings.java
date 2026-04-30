@@ -8,6 +8,7 @@ import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.config.ChunkingConfig;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
+import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
 import io.jchunk.core.chunk.Chunk;
 import io.jchunk.fixed.Config;
 import io.jchunk.fixed.FixedChunker;
@@ -41,22 +42,25 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
     private final ChunkingConfig chunkingConfig;
     private final LlmConfig llmConfig;
     private final EmbeddingService embeddingService;
+    private final VectorDbService vectorDbService;
     private final EventStream<TranscriptWithEmbeddings> eventStream;
     private Disposable subscription;
 
     public EventHandlerTranscriptRawToTranscriptWithEmbeddings(EventStream<TranscriptRaw> transcriptEventStream,
-                                                               TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository,
-                                                               TranscriptRepository transcriptRepository,
-                                                               ChunkingConfig chunkingConfig,
-                                                               LlmConfig llmConfig,
-                                                               EmbeddingService embeddingService,
-                                                               EventStream<TranscriptWithEmbeddings> eventStream) {
+                                                                TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository,
+                                                                TranscriptRepository transcriptRepository,
+                                                                ChunkingConfig chunkingConfig,
+                                                                LlmConfig llmConfig,
+                                                                EmbeddingService embeddingService,
+                                                                VectorDbService vectorDbService,
+                                                                EventStream<TranscriptWithEmbeddings> eventStream) {
         this.transcriptEventStream = transcriptEventStream;
         this.transcriptWithEmbeddingsRepository = transcriptWithEmbeddingsRepository;
         this.transcriptRepository = transcriptRepository;
         this.chunkingConfig = chunkingConfig;
         this.llmConfig = llmConfig;
         this.embeddingService = embeddingService;
+        this.vectorDbService = vectorDbService;
         this.eventStream = eventStream;
     }
 
@@ -159,6 +163,10 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                         transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
 
                         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
+                                .doOnNext(saved -> {
+                                    // Save chunk embeddings to vector database
+                                    vectorDbService.saveChunkEmbeddings(saved.getId().toString(), chunkEmbeddings);
+                                })
                                 .flatMap(saved -> eventStream.publish(saved).thenReturn(saved));
 
                     } catch (Exception e) {
