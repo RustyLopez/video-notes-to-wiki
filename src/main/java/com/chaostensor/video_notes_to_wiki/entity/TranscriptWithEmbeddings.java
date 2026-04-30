@@ -22,6 +22,7 @@ public class TranscriptWithEmbeddings {
     private UUID id;
     private UUID transcriptRawId;
     private List<ChunkEmbedding> chunkEmbeddings;
+    private float[] summaryEmbedding;
     private LlmStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

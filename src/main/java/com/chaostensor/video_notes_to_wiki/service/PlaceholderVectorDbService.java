@@ -43,4 +43,11 @@ public class PlaceholderVectorDbService implements VectorDbService {
         }
         return chunks.stream().map(TranscriptWithEmbeddings.ChunkEmbedding::chunk).toList();
     }
+
+    @Override
+    public void saveSummaryEmbedding(String transcriptId, float[] summaryEmbedding) {
+        // TODO: Implement actual vector database storage
+        // For now, store in memory (could add to the same map or a separate one)
+        System.out.println("Placeholder: Saved summary embedding for transcript " + transcriptId);
+    }
 }

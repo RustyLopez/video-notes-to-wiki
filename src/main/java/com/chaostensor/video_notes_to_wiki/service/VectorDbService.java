@@ -20,6 +20,14 @@ public interface VectorDbService {
     void saveChunkEmbeddings(String transcriptId, List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings);
 
     /**
+     * Saves summary embedding to the vector database.
+     *
+     * @param transcriptId The ID of the transcript this summary belongs to
+     * @param summaryEmbedding The embedding of the executive summary
+     */
+    void saveSummaryEmbedding(String transcriptId, float[] summaryEmbedding);
+
+    /**
      * Searches for similar chunks based on vector similarity.
      *
      * @param queryEmbedding The query embedding vector

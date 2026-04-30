@@ -6,7 +6,9 @@ import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
 import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
+import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -29,10 +31,12 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
 
     private final EventStream<TranscriptWithEmbeddings> eventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
+    private final TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository;
     private final WebClient.Builder webClientBuilder;
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final LlmConfig llmConfig;
     private final VectorDbService vectorDbService;
+    private final EmbeddingService embeddingService;
 
     private final Semaphore concurrencySemaphore;
 
@@ -123,6 +127,20 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
         String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
 
         return callLLM(prompt)
+                .flatMap(result -> {
+                    // Generate embedding for the executive summary
+                    List<float[]> summaryEmbeddings = embeddingService.embed(List.of(result));
+                    float[] summaryEmbedding = summaryEmbeddings.get(0);
+
+                    // Save summary embedding to VectorDb
+                    vectorDbService.saveSummaryEmbedding(transcriptWithEmbeddings.getId().toString(), summaryEmbedding);
+
+                    // Update TranscriptWithEmbeddings with summary embedding
+                    transcriptWithEmbeddings.setSummaryEmbedding(summaryEmbedding);
+                    transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
+                    return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
+                            .thenReturn(result);
+                })
                 .flatMap(result -> {
                     TranscriptExecutiveSummary summary = new TranscriptExecutiveSummary();
                     summary.setId(UUID.randomUUID());
