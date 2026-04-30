@@ -7,6 +7,7 @@ import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRe
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.config.ChunkingConfig;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
 import io.jchunk.fixed.FixedChunker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,7 @@ import jakarta.annotation.PostConstruct;
 import java.util.List;
 import java.util.UUID;
 import java.time.LocalDateTime;
+import java.util.stream.IntStream;
 
 @Component
 public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements EventHandler<TranscriptRaw> {
@@ -29,22 +31,23 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
     private final TranscriptRepository transcriptRepository;
     private final ChunkingConfig chunkingConfig;
     private final LlmConfig llmConfig;
+    private final EmbeddingService embeddingService;
     private final EventStream<TranscriptWithEmbeddings> eventStream;
     private Disposable subscription;
 
     public EventHandlerTranscriptRawToTranscriptWithEmbeddings(EventStream<TranscriptRaw> transcriptEventStream,
-                                                                     TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository,
-                                                                     TranscriptRepository transcriptRepository,
-                                                                     ChunkingConfig chunkingConfig,
-                                                                     LlmConfig llmConfig,
-                                                                     EventStream<TranscriptWithEmbeddings> eventStream) {
+                                                                      TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository,
+                                                                      TranscriptRepository transcriptRepository,
+                                                                      ChunkingConfig chunkingConfig,
+                                                                      LlmConfig llmConfig,
+                                                                      EmbeddingService embeddingService,
+                                                                      EventStream<TranscriptWithEmbeddings> eventStream) {
         this.transcriptEventStream = transcriptEventStream;
         this.transcriptWithEmbeddingsRepository = transcriptWithEmbeddingsRepository;
         this.transcriptRepository = transcriptRepository;
         this.chunkingConfig = chunkingConfig;
         this.llmConfig = llmConfig;
-
-        // TODO: Initialize Ollama embedding model
+        this.embeddingService = embeddingService;
         this.eventStream = eventStream;
     }
 
@@ -100,9 +103,10 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                     // Perform simple chunking for now
                     List<String> chunks = List.of(transcriptContent); // Single chunk for now
 
-                    // Generate embeddings for chunks - simplified for now
-                    List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = chunks.stream()
-                        .map(chunk -> new TranscriptWithEmbeddings.ChunkEmbedding(chunk, List.of(0.1f, 0.2f, 0.3f))) // Placeholder embeddings
+                    // Generate embeddings for chunks
+                    List<List<Float>> embeddings = embeddingService.embedTexts(chunks);
+                    List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = IntStream.range(0, chunks.size())
+                        .mapToObj(i -> new TranscriptWithEmbeddings.ChunkEmbedding(chunks.get(i), embeddings.get(i)))
                         .toList();
 
                     transcriptWithEmbeddings.setChunkEmbeddings(chunkEmbeddings);
