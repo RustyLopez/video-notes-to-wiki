@@ -47,6 +47,23 @@ public interface VectorDbService {
     List<String> queryChunks(String transcriptId, List<float[]> queryEmbeddings, int maxPromptContextLength);
 
     /**
+     * Gets the most relevant embeddings from the vector database.
+     *
+     * @param topK Number of top relevant embeddings to return
+     * @return List of most relevant embeddings
+     */
+    List<float[]> getMostRelevantEmbeddings(int topK);
+
+    /**
+     * Queries chunks from all transcripts based on embeddings.
+     *
+     * @param queryEmbeddings List of embeddings to query with
+     * @param maxPromptContextLength Maximum context length for the prompt
+     * @return List of relevant chunks from all transcripts
+     */
+    List<String> queryAllChunks(List<float[]> queryEmbeddings, int maxPromptContextLength);
+
+    /**
      * Result of a vector similarity search.
      */
     record VectorSearchResult(String chunk, float[] embedding, double similarityScore) {}

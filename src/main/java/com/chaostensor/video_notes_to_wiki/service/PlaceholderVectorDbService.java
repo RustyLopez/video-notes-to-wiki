@@ -45,6 +45,24 @@ public class PlaceholderVectorDbService implements VectorDbService {
     }
 
     @Override
+    public List<float[]> getMostRelevantEmbeddings(int topK) {
+        // TODO: Implement actual logic to determine most relevant embeddings
+        // For now, return empty list as placeholder
+        return new ArrayList<>();
+    }
+
+    @Override
+    public List<String> queryAllChunks(List<float[]> queryEmbeddings, int maxPromptContextLength) {
+        // TODO: Implement actual querying logic across all transcripts
+        // For now, return all chunks from all stored transcripts, ignoring queryEmbeddings and maxPromptContextLength
+        List<String> allChunks = new ArrayList<>();
+        for (List<TranscriptWithEmbeddings.ChunkEmbedding> chunks : storedChunks.values()) {
+            allChunks.addAll(chunks.stream().map(TranscriptWithEmbeddings.ChunkEmbedding::chunk).toList());
+        }
+        return allChunks;
+    }
+
+    @Override
     public void saveSummaryEmbedding(String transcriptId, float[] summaryEmbedding) {
         // TODO: Implement actual vector database storage
         // For now, store in memory (could add to the same map or a separate one)

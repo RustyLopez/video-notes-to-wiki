@@ -7,9 +7,11 @@ import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptsHierarchicalRollupRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
+import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
 import com.chaostensor.video_notes_to_wiki.util.TokenEstimator;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -26,8 +28,9 @@ import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup implements EventHandler<TranscriptExecutiveSummary> {
+
+    private static final Logger log = LoggerFactory.getLogger(EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsHierarchicalRollup.class);
 
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
@@ -36,50 +39,54 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     private final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream;
     private final LlmConfig llmConfig;
     private final TokenEstimator tokenEstimator;
+    private final VectorDbService vectorDbService;
 
     private Semaphore concurrencySemaphore;
 
     private static final String HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE = """
             You are performing hierarchical summarization to create the next layer of wiki documentation (Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}).
 
-             You will be given a set of Layer 1 executive summaries from multiple related videos/recordings. Your job is to synthesize them into one cohesive Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}} summary.
+             You will be given a set of relevant chunks from multiple related videos/recordings. Your job is to synthesize them into one cohesive Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}} summary.
 
-             Combined input length of all Layer 1 summaries in this chunk: {{TOTAL_INPUT_TOKENS_OR_WORDS}} (approximately {{APPROX_WORD_COUNT}} words).
+              Combined input length of all relevant chunks: {{TOTAL_INPUT_TOKENS_OR_WORDS}} (approximately {{APPROX_WORD_COUNT}} words).
 
-             Produce a single Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}} summary that is roughly 30% of the combined input length (target ≈ {{TARGET_WORD_COUNT}} words or fewer). Focus on maximum information density while preserving every critical insight, decision, tradeoff, action item, and unique detail.
+              Produce a single Layer {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}} summary that is roughly 30% of the combined input length (target ≈ {{TARGET_WORD_COUNT}} words or fewer). Focus on maximum information density while preserving every critical insight, decision, tradeoff, action item, and unique detail.
 
-             First output this exact metadata header:
-             **Sources Covered:** [list the Source IDs or Titles from the Layer 1 summaries, comma-separated]
-             **Layer:** {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}
-             **Core Abstract:** [one crisp sentence capturing the overarching theme across all sources in this chunk]
+              Relevant chunks:
+              {{RELEVANT_CHUNKS}}
 
-             Then produce exactly these sections (use the exact headings below):
+              First output this exact metadata header:
+              **Sources Covered:** [list the Source IDs or Titles from the relevant chunks, comma-separated]
+              **Layer:** {{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}
+              **Core Abstract:** [one crisp sentence capturing the overarching theme across all sources in this chunk]
 
-             **Executive Summary**
-             (3–5 sentences maximum, extremely high signal density)
+              Then produce exactly these sections (use the exact headings below):
 
-             **Key Insights & Takeaways**
-             (prioritized bullet list — aggressively merge and deduplicate across all sources; aim for 6–12 bullets total)
+              **Executive Summary**
+              (3–5 sentences maximum, extremely high signal density)
 
-             **Technical Concepts & Decisions**
-             (explain important ideas, tradeoffs, and architecture decisions clearly — synthesize and consolidate)
+              **Key Insights & Takeaways**
+              (prioritized bullet list — aggressively merge and deduplicate across all sources; aim for 6–12 bullets total)
 
-             **Action Items & Open Questions**
-             (clearly listed with context, owners, and timelines; merge duplicates and note any cross-video dependencies)
+              **Technical Concepts & Decisions**
+              (explain important ideas, tradeoffs, and architecture decisions clearly — synthesize and consolidate)
 
-             **Topic Tags**
-             (8–15 most relevant tags for the entire chunk, comma-separated)
+              **Action Items & Open Questions**
+              (clearly listed with context, owners, and timelines; merge duplicates and note any cross-video dependencies)
 
-             **Suggested Wiki Headings**
-             (logical section headings that would work for a combined wiki page covering all sources in this chunk)
+              **Topic Tags**
+              (8–15 most relevant tags for the entire chunk, comma-separated)
 
-             Rules:
-             - Synthesize, do not just concatenate. Eliminate all redundancy across the different Layer 1 summaries.
-             - Preserve every unique or high-value piece of information — do not drop anything important.
-             - Maintain the same professional wiki documentation tone.
-             - Make every bullet and sentence self-contained and merge-ready for future layers.
-             - Output ONLY the requested sections and metadata. No extra commentary.
-            """;
+              **Suggested Wiki Headings**
+              (logical section headings that would work for a combined wiki page covering all sources in this chunk)
+
+              Rules:
+              - Synthesize, do not just concatenate. Eliminate all redundancy across the different relevant chunks.
+              - Preserve every unique or high-value piece of information — do not drop anything important.
+              - Maintain the same professional wiki documentation tone.
+              - Make every bullet and sentence self-contained and merge-ready for future layers.
+              - Output ONLY the requested sections and metadata. No extra commentary.
+             """;
 
     @PostConstruct
     public void init() {
@@ -113,104 +120,34 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     private Mono<Void> performHierarchicalRollup(TranscriptExecutiveSummary triggerEvent) {
         log.info("Starting hierarchical rollup triggered by: {}", triggerEvent.getId());
 
-        return transcriptExecutiveSummaryRepository.findAll()
-                .collectList()
-                .flatMap(this::chunkAndSummarizeIteratively)
+        return Mono.fromCallable(() -> vectorDbService.getMostRelevantEmbeddings(100)) // Placeholder topK
+                .subscribeOn(Schedulers.boundedElastic())
+                .map(relevantEmbeddings ->
+                    vectorDbService.queryAllChunks(relevantEmbeddings, llmConfig.getContextWindowTokens() - llmConfig.getPromptOverheadTokens())
+                )
+                .flatMap(relevantChunks -> Mono.fromCallable(() -> summarizeRelevantChunks(relevantChunks)))
                 .flatMap(finalSummary -> saveAndPublishRollup(finalSummary))
                 .then();
     }
 
-    private Mono<String> chunkAndSummarizeIteratively(List<TranscriptExecutiveSummary> allSummaries) {
-        if (allSummaries.isEmpty()) {
-            return Mono.empty();
-        }
-
-        return Mono.fromCallable(() -> performIterativeSummarization(allSummaries, 2))
-                .subscribeOn(Schedulers.boundedElastic());
-    }
-
-    private String performIterativeSummarization(List<TranscriptExecutiveSummary> summaries, int initialLayerNumber) {
-        List<String> currentSummaries = summaries.stream()
-                .map(TranscriptExecutiveSummary::getResult)
-                .collect(Collectors.toList());
-
-        int[] layerNumber = {initialLayerNumber};
-        while (true) {
-            int totalTokens = currentSummaries.stream()
-                    .mapToInt(tokenEstimator::estimateTokens)
-                    .sum();
-
-            if (totalTokens <= llmConfig.getContextWindowTokens() - llmConfig.getPromptOverheadTokens()) {
-                // Can process all at once
-                if (currentSummaries.size() == 1) {
-                    return currentSummaries.get(0);
-                }
-                return summarizeChunk(currentSummaries, layerNumber[0]);
-            }
-
-            // Need to chunk
-            List<List<String>> chunks = createChunks(currentSummaries, llmConfig.getMaxChunkTokens());
-            List<String> newSummaries = chunks.stream()
-                    .map(chunk -> summarizeChunk(chunk, layerNumber[0]))
-                    .collect(Collectors.toList());
-
-            // Check if we're making progress
-            int newTotalTokens = newSummaries.stream()
-                    .mapToInt(tokenEstimator::estimateTokens)
-                    .sum();
-            double reduction = (double) totalTokens / newTotalTokens;
-            if (reduction < llmConfig.getReductionRatio() * 1.1) { // Allow some tolerance
-                if (newSummaries.size() == 1) {
-                    throw new IllegalStateException("Cannot reduce single chunk further. Config may be invalid.");
-                }
-            }
-
-            currentSummaries = newSummaries;
-            layerNumber[0]++;
-        }
-    }
-
-    private List<List<String>> createChunks(List<String> summaries, int maxTokensPerChunk) {
-        List<List<String>> chunks = new java.util.ArrayList<>();
-        List<String> currentChunk = new java.util.ArrayList<>();
-        int currentTokens = 0;
-
-        for (String summary : summaries) {
-            int tokens = tokenEstimator.estimateTokens(summary);
-            if (currentTokens + tokens > maxTokensPerChunk && !currentChunk.isEmpty()) {
-                chunks.add(new java.util.ArrayList<>(currentChunk));
-                currentChunk.clear();
-                currentTokens = 0;
-            }
-            currentChunk.add(summary);
-            currentTokens += tokens;
-        }
-
-        if (!currentChunk.isEmpty()) {
-            chunks.add(currentChunk);
-        }
-
-        return chunks;
-    }
-
-    private String summarizeChunk(List<String> chunk, int layerNumber) {
-        String combinedInput = String.join("\n\n", chunk);
-        int totalTokens = tokenEstimator.estimateTokens(combinedInput);
-        int approxWords = tokenEstimator.estimateWordCount(combinedInput);
+    private String summarizeRelevantChunks(List<String> relevantChunks) {
+        String combinedChunks = String.join("\n\n", relevantChunks);
+        int totalTokens = tokenEstimator.estimateTokens(combinedChunks);
+        int approxWords = tokenEstimator.estimateWordCount(combinedChunks);
         int targetWords = (int) Math.ceil(approxWords * llmConfig.getReductionRatio());
 
         String prompt = HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE
-                .replace("{{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}", String.valueOf(layerNumber))
+                .replace("{{LAYER_NUMBER_AS_2_PLUS_COMPLETED_PRIOR_ROLLUP_ITERATIONS}}", "2")
                 .replace("{{TOTAL_INPUT_TOKENS_OR_WORDS}}", totalTokens + " tokens")
                 .replace("{{APPROX_WORD_COUNT}}", String.valueOf(approxWords))
                 .replace("{{TARGET_WORD_COUNT}}", String.valueOf(targetWords))
-                + "\n\nLayer 1 summaries:\n" + combinedInput;
+                .replace("{{RELEVANT_CHUNKS}}", combinedChunks);
 
         // Call LLM synchronously in this context
         try {
             return callLLM(prompt).block();
         } catch (Exception e) {
-            log.error("Failed to summarize chunk at layer {}", layerNumber, e);
+            log.error("Failed to summarize relevant chunks", e);
             throw new RuntimeException("LLM summarization failed", e);
         }
     }
