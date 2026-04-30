@@ -35,3 +35,5 @@ app:
     promptOverheadTokens: 500
   vectordb:
     url: ${LANCEDB_URL:http://localhost:8000}
+  output:
+    directory: ${OUTPUT_DIRECTORY:./output}
