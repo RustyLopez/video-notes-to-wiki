@@ -33,16 +33,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * TODO: enable if we want to revert to this hierarchical roll up strategy. It may offer additional context that the
- * current solution doesn't provide, given that we are using the "most relevant embeddings" query both in
- * {@link EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaRAG} and in the final
- * wiki summarization page with the current approach. The prompt is a bit different, but it's unlikely the rollup
- * being deployed there will produce any added value over what's already being done during wiki generation.
- *
- * This provides an alternative rollup strategy and may surface some additional key context to the wiki generate step
- * unique to this approach. So if we are going to do a rollup at all, in addition to what we already do at RAG time
- * when prompting for the wiki, then we should do something that has a chance of actually surfacing some additional
- * details of importance.
  */
 @Component
 @RequiredArgsConstructor

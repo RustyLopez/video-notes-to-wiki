@@ -163,9 +163,9 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                         transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
 
                         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
-                                .doOnNext(saved -> {
+                                .flatMap(saved -> {
                                     // Save chunk embeddings to vector database
-                                    vectorDbService.saveChunkEmbeddings(saved.getId().toString(), chunkEmbeddings);
+                                    return vectorDbService.saveChunkEmbeddings(saved.getId().toString(), chunkEmbeddings).thenReturn(saved);
                                 })
                                 .flatMap(saved -> eventStream.publish(saved).thenReturn(saved));
 

@@ -164,13 +164,13 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                     }
                     return Mono.fromCallable(() -> embeddingService.embed(chunks));
                 })
-                .doOnNext(embeddings -> {
+                .flatMap(embeddings -> {
                     List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = new ArrayList<>();
                     List<String> chunks = chunkWikiByPage(wiki.getResult());
                     for (int i = 0; i < chunks.size(); i++) {
                         chunkEmbeddings.add(new TranscriptWithEmbeddings.ChunkEmbedding(chunks.get(i), embeddings.get(i)));
                     }
-                    vectorDbService.saveChunkEmbeddings(wiki.getId().toString(), chunkEmbeddings);
+                    return vectorDbService.saveChunkEmbeddings(wiki.getId().toString(), chunkEmbeddings).thenReturn(embeddings);
                 })
                 .then(Mono.fromCallable(() -> zipAndSaveWiki(wiki)))
                 .then();
