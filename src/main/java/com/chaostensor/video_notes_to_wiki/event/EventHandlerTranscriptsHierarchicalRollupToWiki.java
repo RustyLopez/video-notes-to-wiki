@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,20 +55,24 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
 
     private static final String SYNTHESIS_PROMPT_TEMPLATE = """
             You are an expert knowledge architect building a comprehensive internal wiki from a series of videos.
-            
+
             Here is the polished documentation synthesized from each individual video:
-            
+
             {{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}
-            
+
+            Additional relevant chunks from the vector database:
+
+            {{RELEVANT_CHUNKS}}
+
             Synthesize all of this into a coherent, hierarchical knowledge base. Produce:
-            
+
             1. **Master Executive Summary** — one strong paragraph covering the entire series
             2. **Hierarchical Topic Structure** — organize the content into logical parent topics and subtopics (use markdown headings)
             3. **Cross-Video Insights & Connections** — highlight how ideas from different videos relate, reinforce each other, or contradict
             4. **Consolidated Action Item Tracker** — all action items with video references
             5. **Recommended Wiki Structure** — suggest actual wiki pages with titles and outline of sections for each page
             6. **Knowledge Gaps or Follow-up Topics** (if any)
-            
+
             Focus on creating something a new engineer could read and rapidly understand the key decisions, architecture, and current state of the project. Remove duplication across videos. Create clean hierarchy.
             """;
 
@@ -101,8 +106,18 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
 
     private Mono<Void> processCompressedTranscriptsEvent(TranscriptsHierarchicalRollup transcriptsHierarchicalRollup) {
         String allTranscripts = transcriptsHierarchicalRollup.getCompressedResult();
-        String prompt = SYNTHESIS_PROMPT_TEMPLATE.replace("{{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}", allTranscripts);
-        return callLLM(prompt)
+
+        // Fetch most relevant embeddings and corresponding chunks
+        return Mono.fromCallable(() -> vectorDbService.getMostRelevantEmbeddings(100)) // Placeholder topK
+                .subscribeOn(Schedulers.boundedElastic())
+                .map(relevantEmbeddings -> vectorDbService.queryAllChunks(relevantEmbeddings, 100000)) // Placeholder context window
+                .flatMap(relevantChunks -> {
+                    String combinedChunks = String.join("\n\n", relevantChunks);
+                    String prompt = SYNTHESIS_PROMPT_TEMPLATE
+                            .replace("{{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}", allTranscripts)
+                            .replace("{{RELEVANT_CHUNKS}}", combinedChunks);
+                    return callLLM(prompt);
+                })
                 .flatMap(result -> {
                     Wiki wiki = new Wiki();
                     wiki.setId(UUID.randomUUID());
