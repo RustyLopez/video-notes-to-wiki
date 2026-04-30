@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -67,5 +68,12 @@ public class PlaceholderVectorDbService implements VectorDbService {
         // TODO: Implement actual vector database storage
         // For now, store in memory (could add to the same map or a separate one)
         System.out.println("Placeholder: Saved summary embedding for transcript " + transcriptId);
+    }
+
+    @Override
+    public ResolvedIds resolveChunksToIds(List<String> chunks) {
+        // Placeholder implementation: assume IDs can be derived from chunk data
+        // For now, return empty lists as this is a placeholder
+        return new ResolvedIds(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
     }
 }

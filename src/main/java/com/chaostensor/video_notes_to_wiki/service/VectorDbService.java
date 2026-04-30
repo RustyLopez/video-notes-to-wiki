@@ -67,4 +67,22 @@ public interface VectorDbService {
      * Result of a vector similarity search.
      */
     record VectorSearchResult(String chunk, float[] embedding, double similarityScore) {}
+
+    /**
+     * Resolves a list of chunks to their corresponding document IDs.
+     * Placeholder implementation that assumes IDs can be derived from chunk data.
+     *
+     * @param chunks List of chunk strings
+     * @return ResolvedIds containing lists of IDs for each document type
+     */
+    ResolvedIds resolveChunksToIds(List<String> chunks);
+
+    /**
+     * Resolved IDs for different document types.
+     */
+    record ResolvedIds(
+        List<UUID> transcriptRawIds,
+        List<UUID> transcriptExecutiveSummaryIds,
+        List<UUID> transcriptsHierarchicalRollupIds
+    ) {}
 }
