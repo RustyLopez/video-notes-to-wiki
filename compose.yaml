@@ -17,7 +17,6 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - chroma
       - ollama
       - postgres-w-vector
       - whisper-wrapper
