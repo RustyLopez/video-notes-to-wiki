@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -23,4 +24,7 @@ public class TranscriptsHierarchicalRollup {
     private String compressedResult;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<TranscriptWithEmbeddings.ChunkEmbedding> chunksWithEmbeddings;
+
+
 }

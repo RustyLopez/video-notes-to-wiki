@@ -7,8 +7,8 @@ import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
-import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
-import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -20,6 +20,7 @@ import reactor.core.scheduler.Schedulers;
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
@@ -35,10 +36,8 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     private final WebClient.Builder webClientBuilder;
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final LlmConfig llmConfig;
-    private final VectorDbService vectorDbService;
-    private final EmbeddingService embeddingService;
+    private final VectorStore vectorStore;
 
-    private final Semaphore concurrencySemaphore;
 
     private static final String PROMPT_TEMPLATE = """
             You are creating high-quality, professional wiki documentation.
@@ -95,15 +94,11 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     }
 
     private Mono<Void> processEvent(TranscriptWithEmbeddings event) {
-        return Mono.fromCallable(() -> {
-            concurrencySemaphore.acquire();
-            return event;
-        })
+        return Mono.just(event)
         .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(this::processTranscriptWithEmbeddingsEvent)
         .doOnError(error -> log.error("Error processing event for id: {}", event.getId(), error))
-        .onErrorResume(e -> Mono.empty())
-        .doFinally(signalType -> concurrencySemaphore.release());
+        .onErrorResume(e -> Mono.empty());
     }
 
     private Mono<Void> processTranscriptWithEmbeddingsEvent(TranscriptWithEmbeddings transcriptWithEmbeddings) {
@@ -119,24 +114,18 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     }
 
     private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(TranscriptWithEmbeddings transcriptWithEmbeddings) {
-        List<float[]> queryEmbeddings = transcriptWithEmbeddings.getChunkEmbeddings().stream()
-                .map(TranscriptWithEmbeddings.ChunkEmbedding::embedding)
-                .toList();
-        List<String> relevantChunks = vectorDbService.queryChunks(transcriptWithEmbeddings.getId().toString(), queryEmbeddings, 100000);
-        String structuredAnalysis = String.join(" ", relevantChunks);
+        String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream()
+                .map(ce -> ce.getChunk())
+                .collect(Collectors.joining(" "));
         String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
 
         return callLLM(prompt)
                 .flatMap(result -> {
-                    // Generate embedding for the executive summary
-                    List<float[]> summaryEmbeddings = embeddingService.embed(List.of(result));
-                    float[] summaryEmbedding = summaryEmbeddings.get(0);
+                    // Save summary to VectorStore
+                    Document summaryDoc = new Document(result, Map.of("transcriptId", transcriptWithEmbeddings.getTranscriptRawId().toString(), "type", "summary"));
+                    vectorStore.add(List.of(summaryDoc));
 
-                    // Save summary embedding to VectorDb
-                    vectorDbService.saveSummaryEmbedding(transcriptWithEmbeddings.getId().toString(), summaryEmbedding);
-
-                    // Update TranscriptWithEmbeddings with summary embedding
-                    transcriptWithEmbeddings.setSummaryEmbedding(summaryEmbedding);
+                    // Update TranscriptWithEmbeddings
                     transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
                     return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                             .thenReturn(result);

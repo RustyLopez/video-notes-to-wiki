@@ -1,9 +1,58 @@
+version: '3.8'
+
 services:
-  chroma:
-    image: 'chromadb/chroma:latest'
+  postgres-w-vector:
+    image: pgvector/pgvector:pg18-trixie # postgres PLUS vector db :)
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: videonotes
     ports:
-      - '8000'
+      - "5432:5432"
+    volumes:
+      - ./postgres-data:/var/lib/postgresql
+
+  spring-boot-app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - chroma
+      - ollama
+      - postgres-w-vector
+      - whisper-wrapper
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/videonotes
+      SPRING_DATASOURCE_USERNAME: user
+      SPRING_DATASOURCE_PASSWORD: password
+      OLLAMA_URL: http://ollama:11434
+    volumes: # TODO make the local dir configurable
+      - ./media-input:/media-input
+      - ./media-transcribed:/media-transcribed
+
   ollama:
-    image: 'ollama/ollama:latest'
+    image: ollama/ollama:latest
     ports:
-      - '11434'
+      - "11434:11434"
+    volumes:
+      # NOTE we are mounting these and don't want to include them in the docker context or everything gets copied..
+      - ./ollama-models:/root/.ollama
+    restart: unless-stopped
+
+  # Whisper wrapper is hosted as an external service, so that we can scale it independently as it is loading the models and not handling end user requests directly.
+  # It will need to have the same volume mount as this service.
+  # we'll need to do something similar with the kubectl but give that service different resource settings
+  whisper-wrapper:
+    build: ./whisper-wrapper
+    ports: # TODO allocate a different port here , need to remember which is external. Note should only be accessible inside the cluster.
+      - "8070:8080"
+    #    depends_on:
+    #      - postgres
+    environment:
+      MEDIA_INPUT: /media-input
+      TRANSCRIPT_OUTPUT: /transcript-output
+    #      SPRING_DATASOURCE_USERNAME: user
+    #      SPRING_DATASOURCE_PASSWORD: password
+    volumes:
+      - ./media-input:/media-input
+      - ./transcript-output:/transcript-output

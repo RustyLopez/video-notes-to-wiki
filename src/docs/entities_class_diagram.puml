@@ -1,0 +1,63 @@
+@startuml Entities Class Diagram
+enum LlmStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    FAILED
+}
+
+class TranscriptRaw {
+    - id: UUID
+    - status: LlmStatus
+    - videoPath: String
+    - transcript: String
+    - hash: String
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+}
+
+class TranscriptWithEmbeddings {
+    - id: UUID
+    - transcriptRawId: UUID
+    - chunkEmbeddings: List<ChunkEmbedding>
+    - summaryEmbedding: float[]
+    - status: LlmStatus
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+}
+
+class ChunkEmbedding {
+    - chunk: String
+    - embedding: float[]
+}
+
+class TranscriptExecutiveSummary {
+    - id: UUID
+    - transcriptWithEmbeddingsId: UUID
+    - result: String
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+}
+
+class TranscriptsHierarchicalRollup {
+    - id: UUID
+    - compressedResult: String
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+    - chunksWithEmbeddings: List<ChunkEmbedding>
+}
+
+class Wiki {
+    - id: UUID
+    - transcriptId: UUID
+    - result: String
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+}
+
+TranscriptRaw ||--|| TranscriptWithEmbeddings : transcriptRawId
+TranscriptWithEmbeddings ||--|| TranscriptExecutiveSummary : transcriptWithEmbeddingsId
+TranscriptWithEmbeddings *-- ChunkEmbedding : chunkEmbeddings
+TranscriptsHierarchicalRollup *-- ChunkEmbedding : chunksWithEmbeddings
+Wiki ||--|| TranscriptsHierarchicalRollup : transcriptId
+@enduml

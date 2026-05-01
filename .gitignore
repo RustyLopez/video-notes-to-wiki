@@ -66,4 +66,10 @@ build/
 *.tiff
 
 
-input-media/*
+media-input/*
+
+chroma-data
+media-input
+media-transcribed
+ollama-models
+postgres-data

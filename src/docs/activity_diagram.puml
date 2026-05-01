@@ -1,0 +1,50 @@
+@startuml Video to Wiki Flow
+start
+:VideoProcessingScheduler scans drop directory;
+if (New video found?) then (yes)
+  :Compute file hash;
+  :Check for duplicate (by hash);
+  if (Duplicate?) then (yes)
+    :Skip;
+  else (no)
+    :Create TranscriptRaw (PENDING);
+    :Call WhisperService to transcribe video;
+    :Update TranscriptRaw (PROCESSING);
+    :Transcribe video to text;
+    :Update TranscriptRaw (COMPLETED, save transcript);
+    :Publish TranscriptRaw event;
+  endif
+else (no)
+endif
+
+:EventHandlerTranscriptRawToTranscriptWithEmbeddings listens;
+:Create TranscriptWithEmbeddings (PENDING);
+:Chunk transcript using semantic chunking;
+:Generate embeddings for chunks;
+:Save chunks with embeddings to vector store;
+:Update TranscriptWithEmbeddings (COMPLETED);
+:Publish TranscriptWithEmbeddings event;
+
+:EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary listens;
+:Collect chunks from TranscriptWithEmbeddings;
+:Call LLM to generate executive summary;
+:Save TranscriptExecutiveSummary;
+:Publish TranscriptExecutiveSummary event;
+
+:EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup listens;
+:Collect all TranscriptExecutiveSummary;
+:Perform hierarchical summarization (layered);
+:Chunk and embed the rollup;
+:Save TranscriptsHierarchicalRollup;
+:Publish TranscriptsHierarchicalRollup event;
+
+:EventHandlerTranscriptsHierarchicalRollupToWiki listens;
+:Take hierarchical rollup;
+:Search vector store for relevant chunks;
+:Call LLM to synthesize final wiki;
+:Save Wiki entity;
+:Chunk wiki and add to vector store;
+:Zip and save wiki file;
+:Publish Wiki event;
+stop
+@enduml
