@@ -7,6 +7,10 @@ spring:
     active: internal-only
   application:
     name: video-notes-to-wiki
+  datasource:
+    url: jdbc:postgresql://localhost:5432/video_notes
+    username: postgres
+    password: password
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/video_notes
     username: postgres
@@ -24,10 +28,10 @@ spring:
         pull-model-strategy: when_missing # NOTE we issue ar eques tot hte remote olllma service to have it pull. We are not running tha locally in the jvm or even the same.. service instance necessarily
         pull-model-strategy.max-retries: 2
     vectorstore:
-      chroma:
-        client:
-          host: ${CHROMA_HOST:https://localhost}
-          port: ${CHROMA_PORT:8000}
+      pgvector:
+        index-type: hnsw
+        dimensions: 2048
+        distance-type: cosine_distance
         initialize-schema: true
 
 app:
