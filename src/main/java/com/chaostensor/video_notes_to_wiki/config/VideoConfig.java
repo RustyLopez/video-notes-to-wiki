@@ -7,8 +7,8 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "app.video")
 public class VideoConfig {
 
-    private String dropDirectory = "./video-drop";
-    private String transcribedDirectory = "./transcribed";
+    private String dropDirectory = "/media-input";
+    private String transcribedDirectory = "/media-transcribed";
 
     public String getDropDirectory() {
         return dropDirectory;
