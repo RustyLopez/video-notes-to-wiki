@@ -24,9 +24,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/videonotes
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
-      OLLAMA_URL: http://ollama:11434/v1
+      OLLAMA_URL: http://ollama:11434
       CHROMA_URL: http://chroma:8000
-      CHROMA_HOST: chroma
+      CHROMA_HOST: http://chroma
       CHROMA_PORT: 8000
     volumes: # TODO make the local dir configurable
       - ./media-input:/media-input
@@ -37,6 +37,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
+      # NOTE we are mounting these and don't want to include them in the docker context or everything gets copied..
       - ./ollama-models:/root/.ollama
     restart: unless-stopped
 

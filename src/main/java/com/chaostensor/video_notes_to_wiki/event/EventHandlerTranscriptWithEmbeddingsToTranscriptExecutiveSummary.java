@@ -38,7 +38,6 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     private final LlmConfig llmConfig;
     private final VectorStore vectorStore;
 
-    private final Semaphore concurrencySemaphore;
 
     private static final String PROMPT_TEMPLATE = """
             You are creating high-quality, professional wiki documentation.
@@ -95,15 +94,11 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     }
 
     private Mono<Void> processEvent(TranscriptWithEmbeddings event) {
-        return Mono.fromCallable(() -> {
-            concurrencySemaphore.acquire();
-            return event;
-        })
+        return Mono.just(event)
         .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(this::processTranscriptWithEmbeddingsEvent)
         .doOnError(error -> log.error("Error processing event for id: {}", event.getId(), error))
-        .onErrorResume(e -> Mono.empty())
-        .doFinally(signalType -> concurrencySemaphore.release());
+        .onErrorResume(e -> Mono.empty());
     }
 
     private Mono<Void> processTranscriptWithEmbeddingsEvent(TranscriptWithEmbeddings transcriptWithEmbeddings) {

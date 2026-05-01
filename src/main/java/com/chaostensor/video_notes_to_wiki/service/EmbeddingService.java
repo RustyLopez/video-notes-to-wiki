@@ -16,13 +16,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class EmbeddingService {
 
     private final EmbeddingModel embeddingModel;
 
-    @Value("${app.llm.embeddings.models.preferred}")
     private final String preferredEmbeddingModel;
+
+    public EmbeddingService(final EmbeddingModel embeddingModel, @Value("${app.llm.embeddings.models.preferred}") final String preferredEmbeddingModel) {
+        this.embeddingModel = embeddingModel;
+        this.preferredEmbeddingModel = preferredEmbeddingModel;
+    }
 
     public List<float[]> embed(List<String> chunks) {
 
@@ -30,8 +33,8 @@ public class EmbeddingService {
                 new EmbeddingRequest(chunks,
                         OllamaEmbeddingOptions.builder()
                                 .model(preferredEmbeddingModel)
-                        .truncate(false)
-                        .build())
+                                .truncate(false)
+                                .build())
         ).getResults().stream().map(Embedding::getOutput).collect(Collectors.toList());
 
 

@@ -22,15 +22,16 @@ spring:
         client:
           host: ${CHROMA_HOST:localhost}
           port: ${CHROMA_PORT:8000}
+        initialize-schema: true
 
 app:
   llm:
     chat:
       models:
-        preferred: jinaai/jina-embeddings-v4
+        preferred: Qwen/Qwen3.5-9B
     embeddings:
       models:
-        preferred: Qwen/Qwen3.5-9B
+        preferred: jinaai/jina-embeddings-v4
     url: ${OLLAMA_URL:http://localhost:8080/v1}
     contextWindowTokens: 4096 # TODO need to be absed on cofngured lllm for chat.
     maxChunkTokens: 4096

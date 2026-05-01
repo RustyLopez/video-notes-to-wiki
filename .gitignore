@@ -67,3 +67,9 @@ build/
 
 
 input-media/*
+
+chroma-data
+media-input
+media-transcribed
+ollama-models
+postgres-data
