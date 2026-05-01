@@ -1,7 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.controller;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
-import com.chaostensor.video_notes_to_wiki.service.WhisperService;
+import com.chaostensor.video_notes_to_wiki.service.TranscriptService;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.event.EventStream;
@@ -15,37 +15,17 @@ import java.util.UUID;
 public class TranscriptRawController {
 
     private final TranscriptRepository transcriptRepository;
-    private final WhisperService whisperService;
-    private final EventStream<TranscriptRaw> eventStream;
+    private final TranscriptService transcriptService;
 
     public TranscriptRawController(TranscriptRepository transcriptRepository,
-                                    WhisperService whisperService,
-                                    EventStream<TranscriptRaw> eventStream) {
+                                     TranscriptService transcriptService) {
         this.transcriptRepository = transcriptRepository;
-        this.whisperService = whisperService;
-        this.eventStream = eventStream;
+        this.transcriptService = transcriptService;
     }
 
     @PostMapping
     public Mono<ResponseEntity<DtoTranscriptRaw>> create(@RequestBody DtoTranscriptRaw request) {
-        TranscriptRaw transcriptRaw = new TranscriptRaw();
-        transcriptRaw.setId(UUID.randomUUID());
-        transcriptRaw.setStatus(LlmStatus.PENDING);
-        transcriptRaw.setVideoPath(request.getVideoPath());
-
-        return transcriptRepository.save(transcriptRaw)
-            .doOnNext(savedTranscript -> {
-                // Start async processing
-                processTranscript(savedTranscript)
-                    .flatMap(completedTranscript -> {
-                        if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
-                            // Publish event for completed transcript
-                            return eventStream.publish(completedTranscript);
-                        }
-                        return Mono.empty();
-                    })
-                    .subscribe();
-            })
+        return transcriptService.createTranscript(request.getVideoPath())
             .flatMap(savedTranscript -> {
                 // For immediate response, we return the ID. The actual transcript will be available later
                 return Mono.just(ResponseEntity.accepted().body(
@@ -55,7 +35,8 @@ public class TranscriptRawController {
                                 .videoPath(request.getVideoPath())
                                 .build()
                 ));
-            });
+            })
+            .defaultIfEmpty(ResponseEntity.badRequest().build()); // If duplicate, return bad request or something, but since service returns empty on duplicate, perhaps not create.
     }
 
     @GetMapping("/{id}")
@@ -85,20 +66,5 @@ public class TranscriptRawController {
             .defaultIfEmpty(ResponseEntity.<DtoTranscriptRaw>notFound().build());
     }
 
-    private Mono<TranscriptRaw> processTranscript(TranscriptRaw transcriptRaw) {
-        transcriptRaw.setStatus(LlmStatus.PROCESSING);
-        return transcriptRepository.save(transcriptRaw)
-            .flatMap(savedTranscript -> {
-                return whisperService.transcribeVideo(savedTranscript.getVideoPath())
-                    .flatMap(transcriptText -> {
-                        savedTranscript.setTranscript(transcriptText);
-                        savedTranscript.setStatus(LlmStatus.COMPLETED);
-                        return transcriptRepository.save(savedTranscript);
-                    })
-                    .onErrorResume(e -> {
-                        savedTranscript.setStatus(LlmStatus.FAILED);
-                        return transcriptRepository.save(savedTranscript);
-                    });
-            });
-    }
+
 }

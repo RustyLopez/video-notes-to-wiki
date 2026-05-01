@@ -10,5 +10,6 @@
     <include file="db/changelog/003-create-transcript-executive-summary-table.sql"/>
     <include file="db/changelog/004-create-transcripts-hierarchical-rollup-table.sql"/>
     <include file="db/changelog/005-create-wiki-table.sql"/>
+    <include file="db/changelog/006-add-hash-to-transcript-raw.sql"/>
 
 </databaseChangeLog>

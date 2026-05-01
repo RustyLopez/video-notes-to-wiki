@@ -167,10 +167,10 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
 
                         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                                 .flatMap(saved -> {
-                                    // Save chunks to vector database
-                                    List<Document> documents = chunks.stream()
-                                            .map(chunk -> new Document(chunk, Map.of("transcriptId", saved.getId().toString(), "type", "chunk")))
-                                            .toList();
+                                     // Save chunks to vector database
+                                     List<Document> documents = chunks.stream()
+                                             .map(chunk -> new Document(chunk, Map.of("transcriptId", transcriptRaw.getId().toString(), "type", "chunk")))
+                                             .toList();
                                     vectorStore.add(documents);
                                     return Mono.just(saved);
                                 })

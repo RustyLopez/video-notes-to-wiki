@@ -19,6 +19,7 @@ public class TranscriptRaw {
     private LlmStatus status;
     private String videoPath;
     private String transcript;
+    private String hash;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

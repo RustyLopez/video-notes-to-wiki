@@ -127,7 +127,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
         return callLLM(prompt)
                 .flatMap(result -> {
                     // Save summary to VectorStore
-                    Document summaryDoc = new Document(result, Map.of("transcriptId", transcriptWithEmbeddings.getId().toString(), "type", "summary"));
+                    Document summaryDoc = new Document(result, Map.of("transcriptId", transcriptWithEmbeddings.getTranscriptRawId().toString(), "type", "summary"));
                     vectorStore.add(List.of(summaryDoc));
 
                     // Update TranscriptWithEmbeddings
