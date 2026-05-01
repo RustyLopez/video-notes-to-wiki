@@ -1,0 +1,98 @@
+@startuml Services Class Diagram
+
+package "Services" {
+    class VideoProcessingScheduler {
+        - transcriptService: TranscriptService
+        - videoConfig: VideoConfig
+        - eventStream: EventStream<TranscriptRaw>
+        - transcriptRepository: TranscriptRepository
+        + scanAndProcessVideos()
+        + moveFileToTranscribed()
+    }
+
+    class TranscriptService {
+        - transcriptRepository: TranscriptRepository
+        - whisperService: WhisperService
+        - eventStream: EventStream<TranscriptRaw>
+        + createTranscript(videoPath: String): Mono<TranscriptRaw>
+    }
+
+    class WhisperService {
+        + transcribeVideo(videoPath: String): Mono<String>
+    }
+
+    class EmbeddingService {
+        + embed(texts: List<String>): List<float[]>
+    }
+}
+
+package "Event Handlers" {
+    class EventHandlerTranscriptRawToTranscriptWithEmbeddings {
+        - transcriptEventStream: EventStream<TranscriptRaw>
+        - transcriptWithEmbeddingsRepository: TranscriptWithEmbeddingsRepository
+        - transcriptRepository: TranscriptRepository
+        - embeddingService: EmbeddingService
+        - eventStream: EventStream<TranscriptWithEmbeddings>
+        + processTranscriptEvent()
+    }
+
+    class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary {
+        - eventStream: EventStream<TranscriptWithEmbeddings>
+        - transcriptExecutiveSummaryRepository: TranscriptExecutiveSummaryRepository
+        - transcriptWithEmbeddingsRepository: TranscriptWithEmbeddingsRepository
+        - webClientBuilder: WebClient.Builder
+        - wikiReadyTranscriptEventStream: EventStream<TranscriptExecutiveSummary>
+        + processTranscriptWithEmbeddingsEvent()
+    }
+
+    class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup {
+        - wikiReadyTranscriptEventStream: EventStream<TranscriptExecutiveSummary>
+        - transcriptExecutiveSummaryRepository: TranscriptExecutiveSummaryRepository
+        - transcriptsHierarchicalRollupRepository: TranscriptsHierarchicalRollupRepository
+        - webClientBuilder: WebClient.Builder
+        - compressedTranscriptsEventStream: EventStream<TranscriptsHierarchicalRollup>
+        + performHierarchicalRollup()
+    }
+
+    class EventHandlerTranscriptsHierarchicalRollupToWiki {
+        - compressedTranscriptsEventStream: EventStream<TranscriptsHierarchicalRollup>
+        - webClient: WebClient
+        - wikiRepository: WikiRepository
+        - wikiResultEventStream: EventStream<Wiki>
+        - vectorStore: VectorStore
+        + processCompressedTranscriptsEvent()
+    }
+}
+
+package "Event System" {
+    interface EventStream<T> {
+        + getEventStream(): Flux<T>
+        + publish(event: T): Mono<Void>
+    }
+
+    class EventStreamInMemoryImpl<T> implements EventStream<T> {
+        - processor: EmitterProcessor<T>
+        - sink: FluxSink<T>
+    }
+}
+
+package "Controllers" {
+    class TranscriptRawController {
+        // Handles transcript raw operations
+    }
+
+    class KnowledgeBaseController {
+        // Handles knowledge base queries
+    }
+}
+
+VideoProcessingScheduler --> TranscriptService : uses
+TranscriptService --> WhisperService : uses
+TranscriptService --> EventStream : publishes
+EventHandlerTranscriptRawToTranscriptWithEmbeddings --> EmbeddingService : uses
+EventHandlerTranscriptRawToTranscriptWithEmbeddings --> EventStream : subscribes/publishes
+EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary --> EventStream : subscribes/publishes
+EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup --> EventStream : subscribes/publishes
+EventHandlerTranscriptsHierarchicalRollupToWiki --> EventStream : subscribes/publishes
+
+@enduml
