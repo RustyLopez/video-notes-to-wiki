@@ -9,7 +9,8 @@ import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptsHierarchicalRollupRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
 import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
 import com.chaostensor.video_notes_to_wiki.util.TokenEstimator;
 import io.jchunk.semantic.embedder.Embedder;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.regex.Matcher;
@@ -47,7 +49,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     private final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream;
     private final LlmConfig llmConfig;
     private final TokenEstimator tokenEstimator;
-    private final VectorDbService vectorDbService;
+    private final VectorStore vectorStore;
 
     private Semaphore concurrencySemaphore;
 
@@ -284,9 +286,11 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     }
 
     private Mono<TranscriptsHierarchicalRollup> saveAlsoToVectorDbWithEmbeddings(final TranscriptsHierarchicalRollup saved) {
-
-        return vectorDbService.saveChunkEmbeddings(saved.getId().toString(), saved.getChunksWithEmbeddings()).thenReturn(saved);
-
+        List<Document> documents = saved.getChunksWithEmbeddings().stream()
+                .map(ce -> new Document(ce.chunk(), Map.of("transcriptId", saved.getId().toString(), "type", "hierarchical")))
+                .toList();
+        vectorStore.add(documents);
+        return Mono.just(saved);
     }
     private static Mono<List<TranscriptWithEmbeddings.ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
         return Mono.fromCallable(() -> chunkByBulletPointsSectionHeadersAndDoubleNewlines(summary))

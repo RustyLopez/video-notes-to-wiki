@@ -5,8 +5,9 @@ import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.Wiki;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.SearchRequest;
 
 import com.chaostensor.video_notes_to_wiki.repository.WikiRepository;
 import com.google.errorprone.annotations.Immutable;
@@ -32,6 +33,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -48,8 +50,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
     private final ObjectMapper objectMapper;
     private final WikiRepository wikiRepository;
     private final EventStream<Wiki> wikiResultEventStream;
-    private final EmbeddingService embeddingService;
-    private final VectorDbService vectorDbService;
+    private final VectorStore vectorStore;
     @Value("${app.output.directory}")
     private String outputDirectory;
     private Disposable subscription;
@@ -78,19 +79,17 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
             """;
 
     public EventHandlerTranscriptsHierarchicalRollupToWiki(EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream,
-                                                            WebClient.Builder webClientBuilder,
-                                                            ObjectMapper objectMapper,
-                                                            WikiRepository wikiRepository,
-                                                            EventStream<Wiki> wikiResultEventStream,
-                                                            EmbeddingService embeddingService,
-                                                            VectorDbService vectorDbService) {
+                                                             WebClient.Builder webClientBuilder,
+                                                             ObjectMapper objectMapper,
+                                                             WikiRepository wikiRepository,
+                                                             EventStream<Wiki> wikiResultEventStream,
+                                                             VectorStore vectorStore) {
         this.compressedTranscriptsEventStream = compressedTranscriptsEventStream;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         this.objectMapper = objectMapper;
         this.wikiRepository = wikiRepository;
         this.wikiResultEventStream = wikiResultEventStream;
-        this.embeddingService = embeddingService;
-        this.vectorDbService = vectorDbService;
+        this.vectorStore = vectorStore;
     }
 
     @PostConstruct
@@ -108,18 +107,21 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
     private Mono<Void> processCompressedTranscriptsEvent(TranscriptsHierarchicalRollup transcriptsHierarchicalRollup) {
         String allTranscripts = transcriptsHierarchicalRollup.getCompressedResult();
 
-        // Fetch most relevant embeddings and corresponding chunks
+        // Fetch most relevant chunks
         /*
-         * This firs step is key to dding essentially a second degree of information from the hierarchical rollup, based
+         * This first step is key to adding essentially a second degree of information from the hierarchical rollup, based
          * on what was in the hierarchical rollup.
          *
-         * Sot he rollup is a summary of summaries, but it would be lossy. HOWEVER. Embeddings from that summary of summaries
+         * So the rollup is a summary of summaries, but it would be lossy. HOWEVER. Using the summary as query
          * can be used to go do one last search of the entire knowledge base to see if anything strongly correlating to that
          * summary can be pulled in and added to the final context.
          */
-        return Mono.fromCallable(() -> generateEmbeddingsFromHierarchicalRollup(transcriptsHierarchicalRollup.getCompressedResult())) // Placeholder topK
+        return Mono.fromCallable(() -> {
+                    SearchRequest searchRequest = SearchRequest.builder().query(transcriptsHierarchicalRollup.getCompressedResult()).topK(100).build();
+                    List<Document> docs = vectorStore.similaritySearch(searchRequest);
+                    return docs.stream().map(Document::getText).toList();
+                })
                 .subscribeOn(Schedulers.boundedElastic())
-                .map(relevantEmbeddings -> vectorDbService.queryAllChunks(List.of(relevantEmbeddings), 100000)) // Placeholder context window
                 .flatMap(relevantChunks -> {
                     String combinedChunks = String.join("\n\n", relevantChunks);
                     String prompt = SYNTHESIS_PROMPT_TEMPLATE
@@ -149,12 +151,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 });
     }
 
-    private float[] generateEmbeddingsFromHierarchicalRollup(final String compressedResult) {
-        // should we .. ch unk? do we need to ?
-        // in this case we um...  it's a query we aren't generating this to write..
-        // we just want everything. Not sure.
-        return embeddingService.embed(List.of(compressedResult)).get(0);
-    }
+
 
     private Mono<Void> processWikiPostProcessing(Wiki wiki) {
         return Mono.fromCallable(() -> chunkWikiByPage(wiki.getResult()))
@@ -162,15 +159,11 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                     if (chunks.isEmpty()) {
                         return Mono.empty();
                     }
-                    return Mono.fromCallable(() -> embeddingService.embed(chunks));
-                })
-                .flatMap(embeddings -> {
-                    List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = new ArrayList<>();
-                    List<String> chunks = chunkWikiByPage(wiki.getResult());
-                    for (int i = 0; i < chunks.size(); i++) {
-                        chunkEmbeddings.add(new TranscriptWithEmbeddings.ChunkEmbedding(chunks.get(i), embeddings.get(i)));
-                    }
-                    return vectorDbService.saveChunkEmbeddings(wiki.getId().toString(), chunkEmbeddings).thenReturn(embeddings);
+                    List<Document> documents = chunks.stream()
+                            .map(chunk -> new Document(chunk, Map.of("transcriptId", wiki.getId().toString(), "type", "hierarchical")))
+                            .toList();
+                    vectorStore.add(documents);
+                    return Mono.empty();
                 })
                 .then(Mono.fromCallable(() -> zipAndSaveWiki(wiki)))
                 .then();

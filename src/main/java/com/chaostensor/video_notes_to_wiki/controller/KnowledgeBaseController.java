@@ -3,9 +3,10 @@ package com.chaostensor.video_notes_to_wiki.controller;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import com.chaostensor.video_notes_to_wiki.service.VectorDbService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +14,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/knowledge-base")
@@ -21,59 +25,52 @@ import java.util.List;
 @Slf4j
 public class KnowledgeBaseController {
 
-    private final EmbeddingService embeddingService;
-    private final VectorDbService vectorDbService;
+    private final VectorStore vectorStore;
     private final WebClient.Builder webClientBuilder;
     private final LlmConfig llmConfig;
 
     @PostMapping("/query")
     public Mono<ResponseEntity<QueryResponse>> query(@RequestBody QueryRequest request) {
-        return Mono.fromCallable(() -> List.of(request.query()))
-            .flatMap(queries -> Mono.fromCallable(() -> embeddingService.embed(queries)))
-            .flatMap(embeddings -> Mono.fromCallable(() -> {
-                // Assume single embedding for single query
-                float[] queryEmbedding = embeddings.get(0);
-                // Query vector DB for chunks
-                List<VectorDbService.VectorSearchResult> searchResults = vectorDbService.searchSimilar(queryEmbedding, 10); // topK=10
-                // Extract chunks from results
-                List<String> chunks = searchResults.stream().map(VectorDbService.VectorSearchResult::chunk).toList();
-                // Resolve chunks to IDs
-                VectorDbService.ResolvedIds resolvedIds = vectorDbService.resolveChunksToIds(chunks);
-                // Return response
-                return ResponseEntity.ok(new QueryResponse(
-                    resolvedIds.transcriptRawIds(),
-                    resolvedIds.transcriptExecutiveSummaryIds(),
-                    resolvedIds.transcriptsHierarchicalRollupIds()
-                ));
-            }));
+        return Mono.fromCallable(() -> {
+            // Query vector DB for chunks
+            SearchRequest searchRequest = SearchRequest.builder().query(request.query()).topK(10).build();
+            List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
+            // Extract chunks from results
+            List<String> chunks = searchResults.stream().map(Document::getText).toList();
+            // Resolve documents to IDs
+            ResolvedIds resolvedIds = resolveDocumentsToIds(searchResults);
+            // Return response
+            return ResponseEntity.ok(new QueryResponse(
+                resolvedIds.transcriptRawIds(),
+                resolvedIds.transcriptExecutiveSummaryIds(),
+                resolvedIds.transcriptsHierarchicalRollupIds()
+            ));
+        });
     }
 
     @PostMapping("/answer")
     public Mono<ResponseEntity<AnswerResponse>> answer(@RequestBody QueryRequest request) {
-        return Mono.fromCallable(() -> List.of(request.query()))
-            .flatMap(queries -> Mono.fromCallable(() -> embeddingService.embed(queries)))
-            .flatMap(embeddings -> Mono.fromCallable(() -> {
-                // Assume single embedding for single query
-                float[] queryEmbedding = embeddings.get(0);
-                // Query vector DB for chunks
-                List<VectorDbService.VectorSearchResult> searchResults = vectorDbService.searchSimilar(queryEmbedding, 10); // topK=10
-                // Extract chunks from results
-                List<String> chunks = searchResults.stream().map(VectorDbService.VectorSearchResult::chunk).toList();
-                // Join chunks as context
-                String context = String.join("\n\n", chunks);
-                // Create prompt
-                String prompt = String.format("""
-                    Answer the following question based on the provided context. If the context does not contain enough information to answer the question, say so.
+        return Mono.fromCallable(() -> {
+            // Query vector DB for chunks
+            SearchRequest searchRequest = SearchRequest.builder().query(request.query()).topK(10).build();
+            List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
+            // Extract chunks from results
+            List<String> chunks = searchResults.stream().map(Document::getText).toList();
+            // Join chunks as context
+            String context = String.join("\n\n", chunks);
+            // Create prompt
+            String prompt = String.format("""
+                Answer the following question based on the provided context. If the context does not contain enough information to answer the question, say so.
 
-                    Question: %s
+                Question: %s
 
-                    Context:
-                    %s
-                    """, request.query(), context);
-                // Call LLM
-                return callLLM(prompt).map(answer -> ResponseEntity.ok(new AnswerResponse(answer)));
-            }))
-            .flatMap(mono -> mono);
+                Context:
+                %s
+                """, request.query(), context);
+            // Call LLM
+            return callLLM(prompt).map(answer -> ResponseEntity.ok(new AnswerResponse(answer)));
+        })
+        .flatMap(mono -> mono);
     }
 
     private Mono<String> callLLM(String prompt) {
@@ -90,4 +87,31 @@ public class KnowledgeBaseController {
                     return Mono.error(e);
                 });
     }
+
+    private ResolvedIds resolveDocumentsToIds(List<Document> documents) {
+        List<UUID> transcriptRawIds = new ArrayList<>();
+        List<UUID> transcriptExecutiveSummaryIds = new ArrayList<>();
+        List<UUID> transcriptsHierarchicalRollupIds = new ArrayList<>();
+
+        for (Document doc : documents) {
+            Map<String, Object> metadata = doc.getMetadata();
+            String type = (String) metadata.get("type");
+            String transcriptIdStr = (String) metadata.get("transcriptId");
+            if (transcriptIdStr != null) {
+                UUID transcriptId = UUID.fromString(transcriptIdStr);
+                switch (type) {
+                    case "chunk" -> transcriptRawIds.add(transcriptId);
+                    case "summary" -> transcriptExecutiveSummaryIds.add(transcriptId);
+                    case "hierarchical" -> transcriptsHierarchicalRollupIds.add(transcriptId);
+                }
+            }
+        }
+        return new ResolvedIds(transcriptRawIds, transcriptExecutiveSummaryIds, transcriptsHierarchicalRollupIds);
+    }
+
+    public record ResolvedIds(
+        List<UUID> transcriptRawIds,
+        List<UUID> transcriptExecutiveSummaryIds,
+        List<UUID> transcriptsHierarchicalRollupIds
+    ) {}
 }
