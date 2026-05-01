@@ -43,6 +43,16 @@ public class VideoProcessingScheduler {
 
     @PostConstruct
     public void subscribe() {
+        /*
+         * NOTE this doesn't quite work ? We can't guarantee all videos were dropped to this scheduler.
+         * If we delete the controller.
+         *
+         * Well no even the controller assumes there is an already accessible file on the server.
+         *
+         * SO this would actually work there.
+         *
+         * BUT then that makes the controller 100% redundant unless we convert it to an upload handler.
+         */
         subscription = eventStream.getEventStream()
                 .filter(transcript -> transcript.getStatus() == LlmStatus.COMPLETED)
                 .flatMap(this::moveFileToTranscribed)
