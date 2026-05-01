@@ -116,7 +116,6 @@
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
 		</dependency>
-
 		<!-- Source: https://mvnrepository.com/artifact/io.jchunk/jchunk-semantic -->
 		<dependency>
 			<groupId>io.jchunk</groupId>

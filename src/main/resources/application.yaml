@@ -8,18 +8,20 @@ spring:
   application:
     name: video-notes-to-wiki
   datasource:
-    url: jdbc:postgresql://localhost:5432/video_notes
-    username: postgres
-    password: password
+    url: ${SPRING_VECTOR_DB_POSTGRES_DATASOURCE_URL:jdbc:postgresql://localhost:5432/video_notes}
+    username: ${SPRING_VECTOR_DB_POSTGRES_DATASOURCE_USERNAME:user}
+    password: ${SPRING_VECTOR_DB_POSTGRES_DATASOURCE_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/video_notes
-    username: postgres
-    password: password
+    url: ${SPRING_R2DBC_DATASOURCE_URL:r2dbc:postgresql://localhost:5432/video_notes}
+    username: ${SPRING_R2DBC_DATASOURCE_USERNAME:user}
+    password: ${SPRING_R2DBC_DATASOURCE_PASSWORD:password}
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+    default-schema: public
   ai:
     ollama:
-      base-url: ${app.llm.url}
+      base-url: ${OLLAMA_URL:http://localhost:8080/v1}
       init:
         chat:
           additional-model: ${app.llm.chat.models.preferred}
@@ -30,29 +32,36 @@ spring:
     vectorstore:
       pgvector:
         index-type: hnsw
-        dimensions: 2048
-        distance-type: cosine_distance
+        # NOTE: column cannot have more than 2000 dimensions for hnsw index. NOt sure if we should use a different index or  if this is a non issue. 1536 is the default
+        # note that if the db schema has already been initialized
+        # it  won't let you fix this. For now , I'm going to delete the entire mounted volume data dir but there's probably a less nuclear optin.
+        dimensions: 1536 #
+        distance-type: COSINE_DISTANCE
         initialize-schema: true
+        remove-existing-vector-store-table: false
+        # maybe we aren't supposed to validate if we are.. initializing it...
+        # yeah confirmed. The table got created when i disabled validation.
+        # Kind of quirky
+        schema-validation: false
+        schema-name: public
+        table-name: vector_store
 
 app:
+  media-input: ${MEDIA_INPUT:./media-input} # TODO use an env var with a fallback to the process working dir / media
+  video-has-been-transcribed-dir: ${VIDEO_HAS_BEEN_TRANSCRIBED_DIR:./video-has-been-transcribed-dir} # TODO use an env var with a fallback to the process working dir / media
+  wiki-output: ${WIKI_OUTPUT:./wiki-output} # TODO use an env var with a fallback to the process working dir / media
   llm:
     chat:
       models:
+        # spring ai may setup multiple so we need to clarify our preferred.
         preferred: Qwen/Qwen3.5-9B
     embeddings:
       models:
+        # spring ai may setup multiple so we need to clarify our preferred.
         preferred: jinaai/jina-embeddings-v4
-    url: ${OLLAMA_URL:http://localhost:8080/v1}
-    contextWindowTokens: 4096 # TODO need to be absed on cofngured lllm for chat.
-    maxChunkTokens: 4096
+    contextWindowTokens: 4096 # TODO need to be absed on cofngured lllm for chat. This si way off for our model.
+    maxChunkTokens: 4096 # this is way off
     reductionRatio: 0.3
     threadPoolSize: 5
     maxMemoryUsageMb: 1024
     promptOverheadTokens: 500
-  output:
-    directory: ${OUTPUT_DIRECTORY:./output}
-  video:
-    drop:
-      directory: ${VIDEO_DROP_DIRECTORY:./video-drop}
-    transcribed:
-      directory: ${TRANSCRIBED_DIRECTORY:./transcribed}
