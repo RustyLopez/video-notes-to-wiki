@@ -60,8 +60,10 @@ services:
     #    depends_on:
     #      - postgres
     environment:
-      MEDIA_INPUT: /media-input # else for standalone spring bot it's just ./media-input relative to the local project, which btw tends to be sub repo embedded in the current configuration.
+      MEDIA_INPUT: /media-input
+      TRANSCRIPT_OUTPUT: /transcript-output
     #      SPRING_DATASOURCE_USERNAME: user
     #      SPRING_DATASOURCE_PASSWORD: password
-    volumes: # TODO make the local dir configurable
-      - ../media-input:/media-input
+    volumes:
+      - ./media-input:/media-input
+      - ./transcript-output:/transcript-output
