@@ -49,8 +49,6 @@ app:
     threadPoolSize: 5
     maxMemoryUsageMb: 1024
     promptOverheadTokens: 500
-  vectordb:
-    url: ${CHROMA_URL:http://localhost:8000}
   output:
     directory: ${OUTPUT_DIRECTORY:./output}
   video:
