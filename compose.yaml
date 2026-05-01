@@ -20,6 +20,7 @@ services:
       - chroma
       - ollama
       - postgres
+      - whisper-wrapper
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/videonotes
       SPRING_DATASOURCE_USERNAME: user
@@ -52,7 +53,7 @@ services:
   # Whisper wrapper is hosted as an external service, so that we can scale it independently as it is loading the models and not handling end user requests directly.
   # It will need to have the same volume mount as this service.
   # we'll need to do something similar with the kubectl but give that service different resource settings
-#  whisper-wrapper:
-#    build: ./whisper-wrapper
-#    volumes: # TODO make the local dir configurable
-#      - ./media-input:./media-input
+  whisper-wrapper:
+    build: ./whisper-wrapper
+    volumes: # TODO make the local dir configurable
+      - ./media-input:./media-input
