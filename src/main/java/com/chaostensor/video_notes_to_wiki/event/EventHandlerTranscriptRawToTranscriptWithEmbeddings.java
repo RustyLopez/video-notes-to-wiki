@@ -177,6 +177,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                                 .flatMap(saved -> eventStream.publish(saved).thenReturn(saved));
 
                     } catch (Exception e) {
+                        logger.error("Error processing transcript with embeddings for id: {}", transcriptWithEmbeddings.getId(), e);
                         transcriptWithEmbeddings.setStatus(LlmStatus.FAILED);
                         transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
                         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings);

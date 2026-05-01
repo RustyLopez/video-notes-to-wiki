@@ -4,6 +4,9 @@ import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -14,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,7 +36,7 @@ public class KnowledgeBaseController {
     public Mono<ResponseEntity<QueryResponse>> query(@RequestBody QueryRequest request) {
         return Mono.fromCallable(() -> {
             // Query vector DB for chunks
-            SearchRequest searchRequest = SearchRequest.builder().query(request.query()).topK(10).build();
+            SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
             List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
             // Extract chunks from results
             List<String> chunks = searchResults.stream().map(Document::getText).toList();
@@ -41,9 +44,9 @@ public class KnowledgeBaseController {
             ResolvedIds resolvedIds = resolveDocumentsToIds(searchResults);
             // Return response
             return ResponseEntity.ok(new QueryResponse(
-                resolvedIds.transcriptRawIds(),
-                resolvedIds.transcriptExecutiveSummaryIds(),
-                resolvedIds.transcriptsHierarchicalRollupIds()
+                resolvedIds.getTranscriptRawIds(),
+                resolvedIds.getTranscriptExecutiveSummaryIds(),
+                resolvedIds.getTranscriptsHierarchicalRollupIds()
             ));
         });
     }
@@ -52,7 +55,7 @@ public class KnowledgeBaseController {
     public Mono<ResponseEntity<AnswerResponse>> answer(@RequestBody QueryRequest request) {
         return Mono.fromCallable(() -> {
             // Query vector DB for chunks
-            SearchRequest searchRequest = SearchRequest.builder().query(request.query()).topK(10).build();
+            SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
             List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
             // Extract chunks from results
             List<String> chunks = searchResults.stream().map(Document::getText).toList();
@@ -66,7 +69,7 @@ public class KnowledgeBaseController {
 
                 Context:
                 %s
-                """, request.query(), context);
+                """, request.getQuery(), context);
             // Call LLM
             return callLLM(prompt).map(answer -> ResponseEntity.ok(new AnswerResponse(answer)));
         })
@@ -89,9 +92,9 @@ public class KnowledgeBaseController {
     }
 
     private ResolvedIds resolveDocumentsToIds(List<Document> documents) {
-        List<UUID> transcriptRawIds = new ArrayList<>();
-        List<UUID> transcriptExecutiveSummaryIds = new ArrayList<>();
-        List<UUID> transcriptsHierarchicalRollupIds = new ArrayList<>();
+        final ImmutableList.Builder<UUID> transcriptRawIdsBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<UUID> transcriptExecutiveSummaryIdsBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<UUID> transcriptsHierarchicalRollupIdsBuilder = ImmutableList.builder();
 
         for (Document doc : documents) {
             Map<String, Object> metadata = doc.getMetadata();
@@ -100,18 +103,21 @@ public class KnowledgeBaseController {
             if (transcriptIdStr != null) {
                 UUID transcriptId = UUID.fromString(transcriptIdStr);
                 switch (type) {
-                    case "chunk" -> transcriptRawIds.add(transcriptId);
-                    case "summary" -> transcriptExecutiveSummaryIds.add(transcriptId);
-                    case "hierarchical" -> transcriptsHierarchicalRollupIds.add(transcriptId);
+                    case "chunk" -> transcriptRawIdsBuilder.add(transcriptId);
+                    case "summary" -> transcriptExecutiveSummaryIdsBuilder.add(transcriptId);
+                    case "hierarchical" -> transcriptsHierarchicalRollupIdsBuilder.add(transcriptId);
                 }
             }
         }
-        return new ResolvedIds(transcriptRawIds, transcriptExecutiveSummaryIds, transcriptsHierarchicalRollupIds);
+        return new ResolvedIds(transcriptRawIdsBuilder.build(), transcriptExecutiveSummaryIdsBuilder.build(), transcriptsHierarchicalRollupIdsBuilder.build());
     }
 
-    public record ResolvedIds(
-        List<UUID> transcriptRawIds,
-        List<UUID> transcriptExecutiveSummaryIds,
-        List<UUID> transcriptsHierarchicalRollupIds
-    ) {}
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ResolvedIds {
+        private List<UUID> transcriptRawIds;
+        private List<UUID> transcriptExecutiveSummaryIds;
+        private List<UUID> transcriptsHierarchicalRollupIds;
+    }
 }

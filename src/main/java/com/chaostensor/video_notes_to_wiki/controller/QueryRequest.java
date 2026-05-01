@@ -1,7 +1,12 @@
 package com.chaostensor.video_notes_to_wiki.controller;
 
-import java.util.List;
-import java.util.UUID;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public record QueryRequest(String query) {
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class QueryRequest {
+    private String query;
 }

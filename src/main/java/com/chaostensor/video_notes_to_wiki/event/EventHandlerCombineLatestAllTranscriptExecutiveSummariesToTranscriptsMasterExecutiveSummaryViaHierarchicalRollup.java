@@ -15,6 +15,7 @@ import com.chaostensor.video_notes_to_wiki.util.TokenEstimator;
 import io.jchunk.semantic.embedder.Embedder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.google.common.collect.ImmutableList;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -167,27 +169,29 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 if (currentSummaries.size() == 1) {
                     return currentSummaries.get(0);
                 }
-                return summarizeChunk(currentSummaries, layerNumber[0]);
+                return summarizeChunk(currentSummaries, layerNumber[0]).block();
             }
 
             // Need to chunk
             List<List<String>> chunks = createChunks(currentSummaries, llmConfig.getMaxChunkTokens());
-            List<String> newSummaries = chunks.stream()
+            List<Mono<String>> newSummaries = chunks.stream()
                     .map(chunk -> summarizeChunk(chunk, layerNumber[0]))
                     .collect(Collectors.toList());
 
+            List<String> newSummariesStrings = Flux.fromIterable(newSummaries).flatMap(Function.identity()).collectList().block();
+
             // Check if we're making progress
-            int newTotalTokens = newSummaries.stream()
+            int newTotalTokens = newSummariesStrings.stream()
                     .mapToInt(tokenEstimator::estimateTokens)
                     .sum();
             double reduction = (double) totalTokens / newTotalTokens;
             if (reduction < llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio() * 1.1/* TODO no idea why this random arbitrary tolerance got added. If anything we want to erro ont he side of being LESS tolerant */) { // Allow some tolerance
-                if (newSummaries.size() == 1) {
+                if (newSummariesStrings.size() == 1) {
                     throw new IllegalStateException("Cannot reduce single chunk further. Config may be invalid.");
                 }
             }
 
-            currentSummaries = newSummaries;
+            currentSummaries = newSummariesStrings;
             layerNumber[0]++;
         }
     }
@@ -215,11 +219,12 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         return chunks;
     }
 
-    private String summarizeChunk(List<String> chunk, int layerNumber) {
+    private Mono<String> summarizeChunk(List<String> chunk, int layerNumber) {
         String combinedInput = String.join("\n\n", chunk);
         int totalTokens = tokenEstimator.estimateTokens(combinedInput);
         int approxWords = tokenEstimator.estimateWordCount(combinedInput);
         int targetWords = (int) Math.ceil(approxWords * llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio());
+
 
 
 
@@ -231,13 +236,11 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 .replace("{{TARGET_WORD_COUNT}}", String.valueOf(targetWords))
                 + "\n\nLayer 1 summaries:\n" + combinedInput;
 
-        // Call LLM synchronously in this context
-        try {
-            return callLLM(prompt).block();
-        } catch (Exception e) {
-            log.error("Failed to summarize chunk at layer {}", layerNumber, e);
-            throw new RuntimeException("LLM summarization failed", e);
-        }
+        return callLLM(prompt)
+                .onErrorResume(e -> {
+                    log.error("Failed to summarize chunk at layer {}", layerNumber, e);
+                    return Mono.error(new RuntimeException("LLM summarization failed", e));
+                });
     }
 
     private Mono<String> callLLM(String prompt) {
@@ -287,7 +290,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
 
     private Mono<TranscriptsHierarchicalRollup> saveAlsoToVectorDbWithEmbeddings(final TranscriptsHierarchicalRollup saved) {
         List<Document> documents = saved.getChunksWithEmbeddings().stream()
-                .map(ce -> new Document(ce.chunk(), Map.of("transcriptId", saved.getId().toString(), "type", "hierarchical")))
+                .map(ce -> new Document(ce.getChunk(), Map.of("transcriptId", saved.getId().toString(), "type", "hierarchical")))
                 .toList();
         vectorStore.add(documents);
         return Mono.just(saved);
@@ -318,7 +321,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
      */
     public static List<String> chunkByBulletPointsSectionHeadersAndDoubleNewlines(final String summary) {
 
-        List<String> chunks = new ArrayList<>();
+        final ImmutableList.Builder<String> chunks = ImmutableList.builder();
         // Simple regex to split by level 1 headings (# )
           // TODO confirm the U+2022 char is correctly here for the regex. right there, test teh
         // regex in generaly
@@ -342,6 +345,6 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 chunks.add(chunk);
             }
         }
-        return chunks;
+        return chunks.build();
     }
 }

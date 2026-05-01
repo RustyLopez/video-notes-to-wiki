@@ -11,6 +11,7 @@ import org.springframework.ai.vectorstore.SearchRequest;
 
 import com.chaostensor.video_notes_to_wiki.repository.WikiRepository;
 import com.google.errorprone.annotations.Immutable;
+import com.google.common.collect.ImmutableList;
 import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -170,7 +171,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
     }
 
     private List<String> chunkWikiByPage(String wikiResult) {
-        List<String> chunks = new ArrayList<>();
+        final ImmutableList.Builder<String> chunks = ImmutableList.builder();
         // Simple regex to split by level 1 headings (# )
         Pattern pattern = Pattern.compile("^#\\s+(.+)$", Pattern.MULTILINE);
         Matcher matcher = pattern.matcher(wikiResult);
@@ -191,7 +192,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 chunks.add(chunk);
             }
         }
-        return chunks;
+        return chunks.build();
     }
 
     private Void zipAndSaveWiki(Wiki wiki) throws IOException {
