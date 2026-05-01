@@ -29,7 +29,8 @@ services:
       CHROMA_HOST: chroma
       CHROMA_PORT: 8000
     volumes: # TODO make the local dir configurable
-      - ./media-input:./media-input
+      - ./media-input:/media-input
+      - ./media-transcribed:/media-transcribed
 
   ollama:
     image: ollama/ollama:latest
@@ -50,7 +51,7 @@ services:
   # Whisper wrapper is hosted as an external service, so that we can scale it independently as it is loading the models and not handling end user requests directly.
   # It will need to have the same volume mount as this service.
   # we'll need to do something similar with the kubectl but give that service different resource settings
-  whisper-wrapper:
-    build: ./whisper-wrapper
-    volumes: # TODO make the local dir configurable
-      - ./media-input:./media-input
+#  whisper-wrapper:
+#    build: ./whisper-wrapper
+#    volumes: # TODO make the local dir configurable
+#      - ./media-input:./media-input
