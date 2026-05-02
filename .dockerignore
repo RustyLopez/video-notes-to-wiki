@@ -4,3 +4,4 @@ ollama-models
 postgres-data
 wiki-output
 video-has-been-transcribed-dir
+transcript-output
