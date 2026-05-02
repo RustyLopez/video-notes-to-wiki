@@ -66,6 +66,7 @@ services:
   # Whisper wrapper is hosted as an external service, so that we can scale it independently as it is loading the models and not handling end user requests directly.
   # It will need to have the same volume mount as this service.
   # we'll need to do something similar with the kubectl but give that service different resource settings
+  # NOTE You need to run a separate mvn build first currently
   whisper-wrapper:
     build: ./whisper-wrapper
     ports:
