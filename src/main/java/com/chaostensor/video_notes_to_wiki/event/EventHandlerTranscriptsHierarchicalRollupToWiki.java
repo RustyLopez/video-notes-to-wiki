@@ -52,7 +52,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
     private final WikiRepository wikiRepository;
     private final EventStream<Wiki> wikiResultEventStream;
     private final VectorStore vectorStore;
-    @Value("${app.output.directory}")
+    @Value("${app.wiki-output}")
     private String outputDirectory;
     private Disposable subscription;
 

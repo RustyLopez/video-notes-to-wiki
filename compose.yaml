@@ -1,12 +1,21 @@
 version: '3.8'
 
 services:
+  # NOTE this restarts
   postgres-w-vector:
     image: pgvector/pgvector:pg18-trixie # postgres PLUS vector db :)
+    healthcheck: # Pg vector does some restart cycling for some reason. So, we need to ensure it's ready.
+      # https://www.postgresql.org/docs/current/app-pg-isready.html
+      # TODO db user and db name are copy and pasted all over the place.
+      test: [ "CMD-SHELL", "pg_isready -d \"video_notes\" -U \"user\"" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: videonotes
+      POSTGRES_DB: video_notes
     ports:
       - "5432:5432"
     volumes:
@@ -15,20 +24,35 @@ services:
   spring-boot-app:
     build: .
     ports:
-      - "8080:8080"
+      - "8060:8080"
     depends_on:
-      - chroma
-      - ollama
-      - postgres-w-vector
-      - whisper-wrapper
+      # Ugh k if any one of these has a condition they all do
+      ollama:
+        condition: service_started # TOdo switch to service healthy once we have a health chekc seutp
+      whisper-wrapper:
+        condition: service_started # TOdo switch to service healthy once we have a health chekc seutp
+      postgres-w-vector:
+        condition: service_healthy
+
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/videonotes
-      SPRING_DATASOURCE_USERNAME: user
-      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_VECTOR_DB_POSTGRES_DATASOURCE_URL: jdbc:postgresql://postgres-w-vector:5432/video_notes
+      SPRING_VECTOR_DB_POSTGRES_DATASOURCE_USERNAME: user
+      SPRING_VECTOR_DB_POSTGRES_DATASOURCE_PASSWORD: password
+      # currently the same datasource with different protocol, but it's important to note that
+      #  A) this doesn't have to be true
+      # and B) we don't want to use the non r2dbc datasource with the r2dbc datasource for standard pg queries.
+      #  The non r2dbc datasource is for vector db enly.
+      SPRING_R2DBC_DATASOURCE_URL: r2dbc:postgresql://postgres-w-vector:5432/video_notes
+      SPRING_R2DBC_DATASOURCE_USERNAME: user
+      SPRING_R2DBC_DATASOURCE_PASSWORD: password
       OLLAMA_URL: http://ollama:11434
+      MEDIA_INPUT: /media-input
+      WIKI_OUTPUT: /wiki-output
+      VIDEO_HAS_BEEN_TRANSCRIBED_DIR: /video-has-been-transcribed-dir
     volumes: # TODO make the local dir configurable
       - ./media-input:/media-input
-      - ./media-transcribed:/media-transcribed
+      - ./wiki-output:/wiki-output
+      - ./video-has-been-transcribed-dir:/video-has-been-transcribed-dir
 
   ollama:
     image: ollama/ollama:latest
@@ -42,13 +66,25 @@ services:
   # Whisper wrapper is hosted as an external service, so that we can scale it independently as it is loading the models and not handling end user requests directly.
   # It will need to have the same volume mount as this service.
   # we'll need to do something similar with the kubectl but give that service different resource settings
+  # NOTE You need to run a separate mvn build first currently
   whisper-wrapper:
     build: ./whisper-wrapper
-    ports: # TODO allocate a different port here , need to remember which is external. Note should only be accessible inside the cluster.
+    ports:
       - "8070:8080"
-    #    depends_on:
-    #      - postgres
+    depends_on:
+      postgres-w-vector:
+        condition: service_healthy
     environment:
+      SPRING_VECTOR_DB_POSTGRES_DATASOURCE_URL: jdbc:postgresql://postgres-w-vector:5432/video_notes
+      SPRING_VECTOR_DB_POSTGRES_DATASOURCE_USERNAME: user
+      SPRING_VECTOR_DB_POSTGRES_DATASOURCE_PASSWORD: password
+      # currently the same datasource with different protocol, but it's important to note that
+      #  A) this doesn't have to be true
+      # and B) we don't want to use the non r2dbc datasource with the r2dbc datasource for standard pg queries.
+      #  The non r2dbc datasource is for vector db enly.
+      SPRING_R2DBC_DATASOURCE_URL: r2dbc:postgresql://postgres-w-vector:5432/video_notes
+      SPRING_R2DBC_DATASOURCE_USERNAME: user
+      SPRING_R2DBC_DATASOURCE_PASSWORD: password
       MEDIA_INPUT: /media-input
       TRANSCRIPT_OUTPUT: /transcript-output
     #      SPRING_DATASOURCE_USERNAME: user

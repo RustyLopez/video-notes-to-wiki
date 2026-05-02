@@ -3,12 +3,12 @@ package com.chaostensor.video_notes_to_wiki.service;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.event.EventStream;
-import com.chaostensor.video_notes_to_wiki.config.VideoConfig;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 import reactor.core.Disposable;
 
 import jakarta.annotation.PostConstruct;
@@ -20,25 +20,31 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.stream.Stream;
 
+
 @Component
 public class VideoProcessingScheduler {
 
     private static final Logger logger = LoggerFactory.getLogger(VideoProcessingScheduler.class);
 
     private final TranscriptService transcriptService;
-    private final VideoConfig videoConfig;
     private final EventStream<TranscriptRaw> eventStream;
     private final TranscriptRepository transcriptRepository;
+    private final String mediaInput;
+    private final String videoHasBeenTranscribedDir;
     private Disposable subscription;
 
     public VideoProcessingScheduler(TranscriptService transcriptService,
-                                    VideoConfig videoConfig,
                                     EventStream<TranscriptRaw> eventStream,
+                                    @Value("${app.media-input}")
+                                    String mediaInput,
+                                    @Value("${app.video-has-been-transcribed-dir}")
+                                    String videoHasBeenTranscribedDir,
                                     TranscriptRepository transcriptRepository) {
         this.transcriptService = transcriptService;
-        this.videoConfig = videoConfig;
         this.eventStream = eventStream;
         this.transcriptRepository = transcriptRepository;
+        this.mediaInput = mediaInput;
+        this.videoHasBeenTranscribedDir = videoHasBeenTranscribedDir;
     }
 
     @PostConstruct
@@ -66,7 +72,7 @@ public class VideoProcessingScheduler {
 
     @Scheduled(fixedDelay = 60000) // Every minute
     public void scanAndProcessVideos() {
-        Path dropDir = Paths.get(videoConfig.getDropDirectory());
+        Path dropDir = Paths.get(mediaInput);
         if (!Files.exists(dropDir)) {
             logger.warn("Video drop directory does not exist: {}", dropDir);
             return;
@@ -104,9 +110,11 @@ public class VideoProcessingScheduler {
     }
 
     private reactor.core.publisher.Mono<Void> moveFileToTranscribed(TranscriptRaw transcript) {
+        // TODO this is a bit broken becuase in the whisper x app we use the existence of files to
+        // determine if processed. WE will be changing that, but until then this is .. kind of broken.
         try {
             Path source = Paths.get(transcript.getVideoPath());
-            Path targetDir = Paths.get(videoConfig.getTranscribedDirectory());
+            Path targetDir = Paths.get(videoHasBeenTranscribedDir);
             if (!Files.exists(targetDir)) {
                 Files.createDirectories(targetDir);
             }

@@ -68,8 +68,10 @@ build/
 
 media-input/*
 
-chroma-data
+
 media-input
-media-transcribed
 ollama-models
 postgres-data
+wiki-output
+video-has-been-transcribed-dir
+transcript-output

@@ -7,3 +7,6 @@
 # [submodule "whisper-wrapper"]
 # 	path = whisper-wrapper
 # 	url = https://github.com/RustyLopez/whisper-wrapper.git
+[submodule "whisper-wrapper"]
+	path = whisper-wrapper
+	url = https://github.com/RustyLopez/whisper-wrapper.git
