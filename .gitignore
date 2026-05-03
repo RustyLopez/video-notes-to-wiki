@@ -73,5 +73,5 @@ media-input
 ollama-models
 postgres-data
 wiki-output
-video-has-been-transcribed-dir
+video-output
 transcript-output

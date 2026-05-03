@@ -48,11 +48,9 @@ services:
       OLLAMA_URL: http://ollama:11434
       MEDIA_INPUT: /media-input
       WIKI_OUTPUT: /wiki-output
-      VIDEO_HAS_BEEN_TRANSCRIBED_DIR: /video-has-been-transcribed-dir
-    volumes: # TODO make the local dir configurable
+    volumes:
       - ./media-input:/media-input
       - ./wiki-output:/wiki-output
-      - ./video-has-been-transcribed-dir:/video-has-been-transcribed-dir
 
   ollama:
     image: ollama/ollama:latest
@@ -87,8 +85,8 @@ services:
       SPRING_R2DBC_DATASOURCE_PASSWORD: password
       MEDIA_INPUT: /media-input
       TRANSCRIPT_OUTPUT: /transcript-output
-    #      SPRING_DATASOURCE_USERNAME: user
-    #      SPRING_DATASOURCE_PASSWORD: password
+      VIDEO_OUTPUT: /video-output
     volumes:
       - ./media-input:/media-input
       - ./transcript-output:/transcript-output
+      - ./video-output:/video-output

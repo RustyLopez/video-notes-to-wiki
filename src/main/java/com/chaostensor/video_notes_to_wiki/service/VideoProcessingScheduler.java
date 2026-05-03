@@ -37,8 +37,6 @@ public class VideoProcessingScheduler {
                                     EventStream<TranscriptRaw> eventStream,
                                     @Value("${app.media-input}")
                                     String mediaInput,
-                                    @Value("${app.video-has-been-transcribed-dir}")
-                                    String videoHasBeenTranscribedDir,
                                     TranscriptRepository transcriptRepository) {
         this.transcriptService = transcriptService;
         this.eventStream = eventStream;
@@ -61,7 +59,6 @@ public class VideoProcessingScheduler {
          */
         subscription = eventStream.getEventStream()
                 .filter(transcript -> transcript.getStatus() == LlmStatus.COMPLETED)
-                .flatMap(this::moveFileToTranscribed)
                 .subscribe(
                         null, // onNext
                         error -> logger.error("Error in video processing subscription", error),
@@ -109,21 +106,5 @@ public class VideoProcessingScheduler {
         return fileName.endsWith(".mp4") || fileName.endsWith(".avi") || fileName.endsWith(".mov") || fileName.endsWith(".mkv");
     }
 
-    private reactor.core.publisher.Mono<Void> moveFileToTranscribed(TranscriptRaw transcript) {
-        // TODO this is a bit broken becuase in the whisper x app we use the existence of files to
-        // determine if processed. WE will be changing that, but until then this is .. kind of broken.
-        try {
-            Path source = Paths.get(transcript.getVideoPath());
-            Path targetDir = Paths.get(videoHasBeenTranscribedDir);
-            if (!Files.exists(targetDir)) {
-                Files.createDirectories(targetDir);
-            }
-            Path target = targetDir.resolve(source.getFileName());
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-            logger.info("Moved video file to transcribed directory: {}", target);
-        } catch (IOException e) {
-            logger.error("Failed to move video file: {}", transcript.getVideoPath(), e);
-        }
-        return reactor.core.publisher.Mono.empty();
-    }
+
 }
