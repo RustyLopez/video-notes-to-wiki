@@ -161,7 +161,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 .then();
     }
 
-    private List<String> chunkWikiByPage(final String wikiResult) {
+    private ImmutableList<String> chunkWikiByPage(final String wikiResult) {
         final ImmutableList.Builder<String> chunks = ImmutableList.builder();
         // Simple regex to split by level 1 headings (# )
         final Pattern pattern = Pattern.compile("^#\\s+(.+)$", Pattern.MULTILINE);

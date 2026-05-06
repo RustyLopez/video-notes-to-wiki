@@ -170,7 +170,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
             }
 
             // Need to chunk
-            final List<List<String>> chunks = createChunks(currentSummaries, llmConfig.getMaxChunkTokens());
+            final ImmutableList<ImmutableList<String>> chunks = createChunks(currentSummaries, llmConfig.getMaxChunkTokens());
             final List<Mono<String>> newSummaries = chunks.stream()
                     .map(chunk -> summarizeChunk(chunk, layerNumber[0]))
                     .collect(Collectors.toList());
@@ -193,15 +193,15 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         }
     }
 
-    private List<List<String>> createChunks(final List<String> summaries, final int maxTokensPerChunk) {
-        final List<List<String>> chunks = new java.util.ArrayList<>();
+    private ImmutableList<ImmutableList<String>> createChunks(final List<String> summaries, final int maxTokensPerChunk) {
+        final ImmutableList.Builder<ImmutableList<String>> chunks = ImmutableList.builder();
         final List<String> currentChunk = new java.util.ArrayList<>();
         int currentTokens = 0;
 
         for (final String summary : summaries) {
             final int tokens = tokenEstimator.estimateTokens(summary);
             if (currentTokens + tokens > maxTokensPerChunk && !currentChunk.isEmpty()) {
-                chunks.add(new java.util.ArrayList<>(currentChunk));
+                chunks.add(ImmutableList.copyOf(currentChunk));
                 currentChunk.clear();
                 currentTokens = 0;
             }
@@ -210,10 +210,10 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         }
 
         if (!currentChunk.isEmpty()) {
-            chunks.add(currentChunk);
+            chunks.add(ImmutableList.copyOf(currentChunk));
         }
 
-        return chunks;
+        return chunks.build();
     }
 
     private Mono<String> summarizeChunk(final List<String> chunk, final int layerNumber) {
@@ -291,7 +291,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         return Mono.just(saved);
     }
 
-    private Mono<List<TranscriptWithEmbeddings.ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
+    private Mono<ImmutableList<TranscriptWithEmbeddings.ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
         return Mono.fromCallable(() -> chunkByBulletPointsSectionHeadersAndDoubleNewlines(summary))
                 .flatMap(chunks -> {
                     if (chunks.isEmpty()) {
@@ -306,7 +306,8 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                             .map(tuple -> {
                                 return new TranscriptWithEmbeddings.ChunkEmbedding(tuple.getT1(), tuple.getT2());
                             })
-                            .collectList();
+                            .collectList()
+                            .map(ImmutableList::copyOf);
                 });
     }
 
@@ -316,7 +317,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
      * @param summary
      * @return
      */
-    public static List<String> chunkByBulletPointsSectionHeadersAndDoubleNewlines(final String summary) {
+    public static ImmutableList<String> chunkByBulletPointsSectionHeadersAndDoubleNewlines(final String summary) {
 
         final ImmutableList.Builder<String> chunks = ImmutableList.builder();
         // Simple regex to split by level 1 headings (# )

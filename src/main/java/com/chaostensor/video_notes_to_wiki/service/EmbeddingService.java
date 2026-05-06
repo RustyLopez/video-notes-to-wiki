@@ -15,6 +15,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.ImmutableList;
+
 @Service
 public class EmbeddingService {
 
@@ -27,15 +29,15 @@ public class EmbeddingService {
         this.preferredEmbeddingModel = preferredEmbeddingModel;
     }
 
-    public List<float[]> embed(final List<String> chunks) {
+    public ImmutableList<float[]> embed(final List<String> chunks) {
 
-        return this.embeddingModel.call(
+        return ImmutableList.copyOf(this.embeddingModel.call(
                 new EmbeddingRequest(chunks,
                         OllamaEmbeddingOptions.builder()
                                 .model(preferredEmbeddingModel)
                                 .truncate(false)
                                 .build())
-        ).getResults().stream().map(Embedding::getOutput).collect(Collectors.toList());
+        ).getResults().stream().map(Embedding::getOutput).collect(Collectors.toList()));
 
 
     }
