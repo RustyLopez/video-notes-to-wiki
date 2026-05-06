@@ -1,50 +1,145 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
+import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
+import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
+import com.google.common.collect.ImmutableList;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContext;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.ollama.OllamaContainer;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
-@Testcontainers
-@SpringBootTest
-@ActiveProfiles("test")
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
+
 class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
 
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("pgvector/pgvector:pg18")
-            .withDatabaseName("testdb")
-            .withUsername("test")
-            .withPassword("test");
+    @Mock
+    private EventStream<TranscriptRaw> transcriptEventStream;
 
-    @Container
-    static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
+    @Mock
+    private TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository;
 
-    @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.r2dbc.url", () -> postgres.getJdbcUrl().replace("jdbc:", "r2dbc:"));
-        registry.add("spring.r2dbc.username", postgres::getUsername);
-        registry.add("spring.r2dbc.password", postgres::getPassword);
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    @Mock
+    private TranscriptRepository transcriptRepository;
 
-        registry.add("spring.ai.ollama.base-url", ollama::getEndpoint);
-        registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never");
+    @Mock
+    private LlmConfig llmConfig;
+
+    @Mock
+    private EmbeddingService embeddingService;
+
+    @Mock
+    private VectorStore vectorStore;
+
+    @Mock
+    private EventStream<TranscriptWithEmbeddings> eventStream;
+
+    private EventHandlerTranscriptRawToTranscriptWithEmbeddings handler;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        handler = new EventHandlerTranscriptRawToTranscriptWithEmbeddings(
+                transcriptEventStream, transcriptWithEmbeddingsRepository, transcriptRepository,
+                llmConfig, embeddingService, vectorStore, eventStream
+        );
     }
 
-    @Autowired
-    private ApplicationContext context;
+    @Test
+    void testProcessTranscriptEventSuccess() {
+        TranscriptRaw transcriptRaw = new TranscriptRaw();
+        transcriptRaw.setId(UUID.randomUUID());
+        transcriptRaw.setTranscript("Test transcript");
+
+        TranscriptWithEmbeddings savedTranscript = new TranscriptWithEmbeddings();
+        savedTranscript.setId(UUID.randomUUID());
+
+        when(transcriptWithEmbeddingsRepository.save(any(TranscriptWithEmbeddings.class)))
+                .thenReturn(Mono.just(savedTranscript));
+        when(eventStream.publish(savedTranscript)).thenReturn(Mono.empty());
+
+        Mono<Void> result = handler.processTranscriptEvent(transcriptRaw);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+    }
 
     @Test
-    void contextLoadsAndHandlerBeanExists() {
-        assert context.getBean(EventHandlerTranscriptRawToTranscriptWithEmbeddings.class) != null;
+    void testProcessTranscriptWithEmbeddingsSuccess() {
+        UUID id = UUID.randomUUID();
+        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        transcriptWithEmbeddings.setId(id);
+
+        when(transcriptWithEmbeddingsRepository.findById(id)).thenReturn(Mono.just(transcriptWithEmbeddings));
+        when(transcriptWithEmbeddingsRepository.save(any(TranscriptWithEmbeddings.class)))
+                .thenReturn(Mono.just(transcriptWithEmbeddings));
+        when(transcriptRepository.findById(any(UUID.class))).thenReturn(Mono.just(new TranscriptRaw()));
+        when(llmConfig.getMaxChunkTokens()).thenReturn(1000);
+        when(embeddingService.embed(anyList())).thenReturn(ImmutableList.of(new float[]{1.0f}));
+        doNothing().when(vectorStore).add(anyList());
+        when(eventStream.publish(any(TranscriptWithEmbeddings.class))).thenReturn(Mono.empty());
+
+        Mono<TranscriptWithEmbeddings> result = handler.processTranscriptWithEmbeddings(id);
+
+        StepVerifier.create(result)
+                .expectNext(transcriptWithEmbeddings)
+                .verifyComplete();
+    }
+
+    @Test
+    void testProcessTranscriptNullContent() {
+        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        transcriptWithEmbeddings.setId(UUID.randomUUID());
+
+        TranscriptRaw transcriptRaw = new TranscriptRaw();
+        transcriptRaw.setTranscript(null);
+
+        when(transcriptRepository.findById(any(UUID.class))).thenReturn(Mono.just(transcriptRaw));
+        when(transcriptWithEmbeddingsRepository.save(any(TranscriptWithEmbeddings.class)))
+                .thenReturn(Mono.just(transcriptWithEmbeddings));
+
+        Mono<TranscriptWithEmbeddings> result = handler.processTranscript(transcriptWithEmbeddings);
+
+        StepVerifier.create(result)
+                .expectNext(transcriptWithEmbeddings)
+                .verifyComplete();
+    }
+
+    @Test
+    void testProcessTranscriptException() {
+        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        transcriptWithEmbeddings.setId(UUID.randomUUID());
+
+        when(transcriptRepository.findById(any(UUID.class))).thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        Mono<TranscriptWithEmbeddings> result = handler.processTranscript(transcriptWithEmbeddings);
+
+        StepVerifier.create(result)
+                .expectNext(transcriptWithEmbeddings) // Should set status to FAILED
+                .verifyComplete();
+    }
+
+    @Test
+    void testDetermineIdealMaxChunkSizeForSingleTranscriptChunks() {
+        when(llmConfig.getMaxChunkTokens()).thenReturn(2000);
+
+        int result = handler.determineIdealMaxChunkSizeForSingleTranscriptChunks();
+
+        assert result == 2000;
     }
 }

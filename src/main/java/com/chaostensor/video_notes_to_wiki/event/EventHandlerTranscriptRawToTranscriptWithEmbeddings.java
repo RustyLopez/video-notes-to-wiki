@@ -61,10 +61,17 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
 
     @PostConstruct
     public void subscribe() {
+        transcriptEventStream.getEventStream()
+                .flatMap(this::processTranscriptEvent)
+                .subscribe(
+                        null,
+                        error -> logger.error("Error in transcript event stream subscription", error),
+                        () -> logger.info("Transcript event stream completed")
+                );
         logger.info("Subscribed to transcript event stream");
     }
 
-    private reactor.core.publisher.Mono<Void> processTranscriptEvent(final TranscriptRaw transcriptRaw) {
+    reactor.core.publisher.Mono<Void> processTranscriptEvent(final TranscriptRaw transcriptRaw) {
         // Create a transcript with embeddings for this completed transcript
         final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
@@ -82,7 +89,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                 .then();
     }
 
-    private Mono<TranscriptWithEmbeddings> processTranscriptWithEmbeddings(final UUID transcriptWithEmbeddingsId) {
+    Mono<TranscriptWithEmbeddings> processTranscriptWithEmbeddings(final UUID transcriptWithEmbeddingsId) {
         return transcriptWithEmbeddingsRepository.findById(transcriptWithEmbeddingsId)
                 .flatMap(transcriptWithEmbeddings -> {
                     transcriptWithEmbeddings.setStatus(LlmStatus.PROCESSING);
@@ -92,7 +99,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                 });
     }
 
-    private Mono<TranscriptWithEmbeddings> processTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
+    Mono<TranscriptWithEmbeddings> processTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
         return transcriptRepository.findById(transcriptWithEmbeddings.getTranscriptRawId())
                 .flatMap(transcriptRaw -> {
                     try {
@@ -175,7 +182,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                 }));
     }
 
-    private int determineIdealMaxChunkSizeForSingleTranscriptChunks() {
+    int determineIdealMaxChunkSizeForSingleTranscriptChunks() {
         return llmConfig.getMaxChunkTokens();
     }
 }

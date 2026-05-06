@@ -93,7 +93,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
         log.info("Subscribed to TranscriptWithEmbeddings event stream");
     }
 
-    private Mono<Void> processEvent(final TranscriptWithEmbeddings event) {
+    Mono<Void> processEvent(final TranscriptWithEmbeddings event) {
         return Mono.just(event)
         .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(this::processTranscriptWithEmbeddingsEvent)
@@ -101,7 +101,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
         .onErrorResume(e -> Mono.empty());
     }
 
-    private Mono<Void> processTranscriptWithEmbeddingsEvent(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
+    Mono<Void> processTranscriptWithEmbeddingsEvent(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
         log.info("Processing event for TranscriptWithEmbeddings id: {}", transcriptWithEmbeddings.getId());
 
         return transcriptExecutiveSummaryRepository.findById(transcriptWithEmbeddings.getId())
@@ -113,7 +113,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
                 .then();
     }
 
-    private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
+    Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
         final String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream()
                 .map(TranscriptWithEmbeddings.ChunkEmbedding::getChunk)
                 .collect(Collectors.joining(" "));
@@ -144,7 +144,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
                 .doOnError(error -> log.error("Error processing summary for id: {}", transcriptWithEmbeddings.getId(), error));
     }
 
-    private Mono<String> callLLM(final String prompt) {
+    Mono<String> callLLM(final String prompt) {
         final WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
         return webClient.post()
                 .uri("")
