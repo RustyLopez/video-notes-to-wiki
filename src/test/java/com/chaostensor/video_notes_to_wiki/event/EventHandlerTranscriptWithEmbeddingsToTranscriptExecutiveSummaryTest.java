@@ -1,28 +1,50 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.ollama.OllamaContainer;
 
-import static org.mockito.Mockito.mock;
-
-@ExtendWith(MockitoExtension.class)
+@Testcontainers
+@SpringBootTest
+@ActiveProfiles("test")
 class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
 
-    @Test
-    void handler_shouldBeInstantiableWithMocks() {
-        assertDoesNotThrow(() -> {
-            new EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary(
-                    mock(EventStream.class),
-                    mock(com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository.class),
-                    mock(com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository.class),
-                    mock(org.springframework.web.reactive.function.client.WebClient.Builder.class),
-                    mock(EventStream.class),
-                    mock(com.chaostensor.video_notes_to_wiki.config.LlmConfig.class),
-                    mock(org.springframework.ai.vectorstore.VectorStore.class)
-            );
-        });
+    @Container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("pgvector/pgvector:pg18")
+            .withDatabaseName("testdb")
+            .withUsername("test")
+            .withPassword("test");
+
+    @Container
+    static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.r2dbc.url", () -> postgres.getJdbcUrl().replace("jdbc:", "r2dbc:"));
+        registry.add("spring.r2dbc.username", postgres::getUsername);
+        registry.add("spring.r2dbc.password", postgres::getPassword);
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+
+        registry.add("spring.ai.ollama.base-url", ollama::getEndpoint);
+        registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never");
     }
 
-    private void assertDoesNotThrow(Runnable r) { r.run(); }
+    @Autowired
+    private ApplicationContext context;
+
+    @Test
+    void contextLoadsAndHandlerBeanExists() {
+        assert context.getBean(EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary.class) != null;
+    }
 }

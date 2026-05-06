@@ -1,44 +1,40 @@
 package com.chaostensor.video_notes_to_wiki.controller;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
-import static org.mockito.Mockito.mock;
-
-@ExtendWith(MockitoExtension.class)
 class KnowledgeBaseControllerTest {
 
-    @Mock
+    @MockitoBean
     private VectorStore vectorStore;
 
-    @Mock
+    @MockitoBean
     private WebClient.Builder webClientBuilder;
 
-    @Mock
+    @MockitoBean
     private LlmConfig llmConfig;
 
-    private KnowledgeBaseController controller;
-
-    @BeforeEach
-    void setUp() {
-        // Note: full mocking of query/answer would require deep mocks for VectorStore.similaritySearch etc.
-        // Here we just verify instantiation and basic wiring for unit test coverage.
-        controller = new KnowledgeBaseController(vectorStore, webClientBuilder, llmConfig);
+    @Test
+    void query_shouldReturnBadRequestForEmptyBody() {
+        WebTestClient.bindToController(new KnowledgeBaseController(vectorStore, webClientBuilder, llmConfig))
+                .build()
+                .post()
+                .uri("/api/knowledge-base/query")
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 
     @Test
-    void controller_shouldBeInstantiable() {
-        // Basic sanity
-        StepVerifier.create(Mono.just(controller))
-                .expectNextMatches(c -> c != null)
-                .verifyComplete();
+    void answer_shouldReturnBadRequestForEmptyBody() {
+        WebTestClient.bindToController(new KnowledgeBaseController(vectorStore, webClientBuilder, llmConfig))
+                .build()
+                .post()
+                .uri("/api/knowledge-base/answer")
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 }
