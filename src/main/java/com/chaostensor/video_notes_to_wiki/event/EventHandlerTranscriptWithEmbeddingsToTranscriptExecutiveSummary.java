@@ -132,7 +132,6 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
                 })
                 .flatMap(result -> {
                     final TranscriptExecutiveSummary summary = new TranscriptExecutiveSummary();
-                    summary.setId(UUID.randomUUID());
                     summary.setTranscriptWithEmbeddingsId(transcriptWithEmbeddings.getId());
                     summary.setResult(result);
                     summary.setCreatedAt(LocalDateTime.now());

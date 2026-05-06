@@ -257,7 +257,6 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
 
         return chunkOutputAndGenerateEmbeddings(summary).flatMap(chunkEmbeddings -> {
             final TranscriptsHierarchicalRollup rollup = new TranscriptsHierarchicalRollup();
-            rollup.setId(UUID.randomUUID());
             rollup.setCompressedResult(summary);
             rollup.setCreatedAt(LocalDateTime.now());
             rollup.setUpdatedAt(LocalDateTime.now());

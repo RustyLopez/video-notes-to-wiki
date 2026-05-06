@@ -124,7 +124,6 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 })
                 .flatMap(result -> {
                     final Wiki wiki = new Wiki();
-                    wiki.setId(UUID.randomUUID());
                     wiki.setTranscriptId(transcriptsHierarchicalRollup.getId()); // Link to the compressed transcripts
                     wiki.setResult(result);
                     wiki.setCreatedAt(LocalDateTime.now());

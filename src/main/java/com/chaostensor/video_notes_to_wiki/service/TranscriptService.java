@@ -52,7 +52,6 @@ public class TranscriptService {
 
     private Mono<TranscriptRaw> createNewTranscript(final String videoPath, final String hash) {
         final TranscriptRaw transcriptRaw = new TranscriptRaw();
-        transcriptRaw.setId(UUID.randomUUID());
         transcriptRaw.setStatus(LlmStatus.PENDING);
         transcriptRaw.setVideoPath(videoPath);
         transcriptRaw.setHash(hash);

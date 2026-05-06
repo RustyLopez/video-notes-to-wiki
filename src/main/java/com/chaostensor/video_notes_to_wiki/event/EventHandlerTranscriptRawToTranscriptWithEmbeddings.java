@@ -74,7 +74,6 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
     reactor.core.publisher.Mono<Void> processTranscriptEvent(final TranscriptRaw transcriptRaw) {
         // Create a transcript with embeddings for this completed transcript
         final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
-        transcriptWithEmbeddings.setId(UUID.randomUUID());
         transcriptWithEmbeddings.setTranscriptRawId(transcriptRaw.getId());
         transcriptWithEmbeddings.setStatus(LlmStatus.PENDING);
         transcriptWithEmbeddings.setCreatedAt(LocalDateTime.now());
