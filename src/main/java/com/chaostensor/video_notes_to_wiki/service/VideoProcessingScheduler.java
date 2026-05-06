@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import reactor.core.Disposable;
 
 import jakarta.annotation.PostConstruct;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,8 +31,6 @@ public class VideoProcessingScheduler {
     private final EventStream<TranscriptRaw> eventStream;
     private final TranscriptRepository transcriptRepository;
     private final String mediaInput;
-    private final String videoHasBeenTranscribedDir;
-    private Disposable subscription;
 
     public VideoProcessingScheduler(TranscriptService transcriptService,
                                     EventStream<TranscriptRaw> eventStream,
@@ -42,7 +41,6 @@ public class VideoProcessingScheduler {
         this.eventStream = eventStream;
         this.transcriptRepository = transcriptRepository;
         this.mediaInput = mediaInput;
-        this.videoHasBeenTranscribedDir = videoHasBeenTranscribedDir;
     }
 
     @PostConstruct
@@ -57,7 +55,7 @@ public class VideoProcessingScheduler {
          *
          * BUT then that makes the controller 100% redundant unless we convert it to an upload handler.
          */
-        subscription = eventStream.getEventStream()
+        eventStream.getEventStream()
                 .filter(transcript -> transcript.getStatus() == LlmStatus.COMPLETED)
                 .subscribe(
                         null, // onNext
