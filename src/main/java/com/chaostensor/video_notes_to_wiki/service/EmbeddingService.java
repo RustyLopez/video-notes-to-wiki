@@ -27,7 +27,7 @@ public class EmbeddingService {
         this.preferredEmbeddingModel = preferredEmbeddingModel;
     }
 
-    public List<float[]> embed(List<String> chunks) {
+    public List<float[]> embed(final List<String> chunks) {
 
         return this.embeddingModel.call(
                 new EmbeddingRequest(chunks,

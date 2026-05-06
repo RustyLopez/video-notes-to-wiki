@@ -17,10 +17,10 @@ public class PgVectorDbDatasourceConfig {
 
     @Bean
     public DataSource getDataSource(
-            @Value("${spring.datasource.url}") String url,
-            @Value("${spring.datasource.username}") String username,
-            @Value("${spring.datasource.password}") String password,
-            @Value("${spring.datasource.driver-class-name}") String driverClassName
+            @Value("${spring.datasource.url}") final String url,
+            @Value("${spring.datasource.username}") final String username,
+            @Value("${spring.datasource.password}") final String password,
+            @Value("${spring.datasource.driver-class-name}") final String driverClassName
     ) {
         final DataSourceBuilder<?> dataSourceBuilder = DataSourceBuilder.create();
         dataSourceBuilder.driverClassName(driverClassName);
@@ -31,7 +31,7 @@ public class PgVectorDbDatasourceConfig {
     }
 
     @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
+    public JdbcTemplate jdbcTemplate(final DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 }

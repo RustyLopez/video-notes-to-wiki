@@ -114,7 +114,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         log.info("Subscribed to TranscriptExecutiveSummary event stream");
     }
 
-    private Mono<Void> processEvent(TranscriptExecutiveSummary event) {
+    private Mono<Void> processEvent(final TranscriptExecutiveSummary event) {
         return Mono.fromCallable(() -> {
                     concurrencySemaphore.acquire();
                     return event;
@@ -126,7 +126,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 .doFinally(signalType -> concurrencySemaphore.release());
     }
 
-    private Mono<Void> performHierarchicalRollup(TranscriptExecutiveSummary triggerEvent) {
+    private Mono<Void> performHierarchicalRollup(final TranscriptExecutiveSummary triggerEvent) {
         log.info("Starting hierarchical rollup triggered by: {}", triggerEvent.getId());
 
         return transcriptExecutiveSummaryRepository.findAll()
@@ -139,7 +139,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
 
 
 
-    private Mono<String> chunkAndSummarizeIteratively(List<TranscriptExecutiveSummary> allSummaries) {
+    private Mono<String> chunkAndSummarizeIteratively(final List<TranscriptExecutiveSummary> allSummaries) {
         if (allSummaries.isEmpty()) {
             return Mono.empty();
         }
@@ -153,14 +153,14 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
-    private String performIterativeSummarization(List<TranscriptExecutiveSummary> summaries, int initialLayerNumber) {
+    private String performIterativeSummarization(final List<TranscriptExecutiveSummary> summaries, final int initialLayerNumber) {
         List<String> currentSummaries = summaries.stream()
                 .map(TranscriptExecutiveSummary::getResult)
                 .collect(Collectors.toList());
 
-        int[] layerNumber = {initialLayerNumber};
+        final int[] layerNumber = {initialLayerNumber};
         while (true) {
-            int totalTokens = currentSummaries.stream()
+            final int totalTokens = currentSummaries.stream()
                     .mapToInt(tokenEstimator::estimateTokens)
                     .sum();
 
@@ -173,18 +173,18 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
             }
 
             // Need to chunk
-            List<List<String>> chunks = createChunks(currentSummaries, llmConfig.getMaxChunkTokens());
-            List<Mono<String>> newSummaries = chunks.stream()
+            final List<List<String>> chunks = createChunks(currentSummaries, llmConfig.getMaxChunkTokens());
+            final List<Mono<String>> newSummaries = chunks.stream()
                     .map(chunk -> summarizeChunk(chunk, layerNumber[0]))
                     .collect(Collectors.toList());
 
-            List<String> newSummariesStrings = Flux.fromIterable(newSummaries).flatMap(Function.identity()).collectList().block();
+            final List<String> newSummariesStrings = Flux.fromIterable(newSummaries).flatMap(Function.identity()).collectList().block();
 
             // Check if we're making progress
-            int newTotalTokens = newSummariesStrings.stream()
+            final int newTotalTokens = newSummariesStrings.stream()
                     .mapToInt(tokenEstimator::estimateTokens)
                     .sum();
-            double reduction = (double) totalTokens / newTotalTokens;
+            final double reduction = (double) totalTokens / newTotalTokens;
             if (reduction < llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio() * 1.1/* TODO no idea why this random arbitrary tolerance got added. If anything we want to erro ont he side of being LESS tolerant */) { // Allow some tolerance
                 if (newSummariesStrings.size() == 1) {
                     throw new IllegalStateException("Cannot reduce single chunk further. Config may be invalid.");
@@ -196,13 +196,13 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         }
     }
 
-    private List<List<String>> createChunks(List<String> summaries, int maxTokensPerChunk) {
-        List<List<String>> chunks = new java.util.ArrayList<>();
-        List<String> currentChunk = new java.util.ArrayList<>();
+    private List<List<String>> createChunks(final List<String> summaries, final int maxTokensPerChunk) {
+        final List<List<String>> chunks = new java.util.ArrayList<>();
+        final List<String> currentChunk = new java.util.ArrayList<>();
         int currentTokens = 0;
 
-        for (String summary : summaries) {
-            int tokens = tokenEstimator.estimateTokens(summary);
+        for (final String summary : summaries) {
+            final int tokens = tokenEstimator.estimateTokens(summary);
             if (currentTokens + tokens > maxTokensPerChunk && !currentChunk.isEmpty()) {
                 chunks.add(new java.util.ArrayList<>(currentChunk));
                 currentChunk.clear();
@@ -219,16 +219,16 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         return chunks;
     }
 
-    private Mono<String> summarizeChunk(List<String> chunk, int layerNumber) {
-        String combinedInput = String.join("\n\n", chunk);
-        int totalTokens = tokenEstimator.estimateTokens(combinedInput);
-        int approxWords = tokenEstimator.estimateWordCount(combinedInput);
-        int targetWords = (int) Math.ceil(approxWords * llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio());
+    private Mono<String> summarizeChunk(final List<String> chunk, final int layerNumber) {
+        final String combinedInput = String.join("\n\n", chunk);
+        final int totalTokens = tokenEstimator.estimateTokens(combinedInput);
+        final int approxWords = tokenEstimator.estimateWordCount(combinedInput);
+        final int targetWords = (int) Math.ceil(approxWords * llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio());
 
 
 
 
-        String prompt = HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE
+        final String prompt = HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE
                 .replace("{{PRIOR_LAYER}}", String.valueOf(layerNumber-1))
                 .replace("{{CURRENT_LAYER}}", String.valueOf(layerNumber))
                 .replace("{{TOTAL_INPUT_TOKENS_OR_WORDS}}", totalTokens + " tokens")
@@ -243,8 +243,8 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 });
     }
 
-    private Mono<String> callLLM(String prompt) {
-        WebClient webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
+    private Mono<String> callLLM(final String prompt) {
+        final WebClient webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -258,10 +258,10 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 });
     }
 
-    private Mono<TranscriptsHierarchicalRollup> saveAndPublishRollup(String summary) {
+    private Mono<TranscriptsHierarchicalRollup> saveAndPublishRollup(final String summary) {
 
         return chunkOutputAndGenerateEmbeddings(summary).flatMap(chunkEmbeddings -> {
-            TranscriptsHierarchicalRollup rollup = new TranscriptsHierarchicalRollup();
+            final TranscriptsHierarchicalRollup rollup = new TranscriptsHierarchicalRollup();
             rollup.setId(UUID.randomUUID());
             rollup.setCompressedResult(summary);
             rollup.setCreatedAt(LocalDateTime.now());
@@ -289,7 +289,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     }
 
     private Mono<TranscriptsHierarchicalRollup> saveAlsoToVectorDbWithEmbeddings(final TranscriptsHierarchicalRollup saved) {
-        List<Document> documents = saved.getChunksWithEmbeddings().stream()
+        final List<Document> documents = saved.getChunksWithEmbeddings().stream()
                 .map(ce -> new Document(ce.getChunk(), Map.of("transcriptId", saved.getId().toString(), "type", "hierarchical")))
                 .toList();
         vectorStore.add(documents);
@@ -326,12 +326,12 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
           // TODO confirm the U+2022 char is correctly here for the regex. right there, test teh
         // regex in generaly
         // may need..  yeah..
-        Pattern pattern = Pattern.compile("(#+|\\n\\n+|\\*+|\\u2022)");
-        Matcher matcher = pattern.matcher(summary);
+        final Pattern pattern = Pattern.compile("(#+|\\n\\n+|\\*+|\\u2022)");
+        final Matcher matcher = pattern.matcher(summary);
         int lastEnd = 0;
         while (matcher.find()) {
             if (lastEnd > 0) {
-                String chunk = summary.substring(lastEnd, matcher.start()).trim();
+                final String chunk = summary.substring(lastEnd, matcher.start()).trim();
                 if (!chunk.isEmpty()) {
                     chunks.add(chunk);
                 }
@@ -340,7 +340,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         }
         // Add the last chunk
         if (lastEnd < summary.length()) {
-            String chunk = summary.substring(lastEnd).trim();
+            final String chunk = summary.substring(lastEnd).trim();
             if (!chunk.isEmpty()) {
                 chunks.add(chunk);
             }

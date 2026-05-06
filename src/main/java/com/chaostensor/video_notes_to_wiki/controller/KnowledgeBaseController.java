@@ -33,15 +33,15 @@ public class KnowledgeBaseController {
     private final LlmConfig llmConfig;
 
     @PostMapping("/query")
-    public Mono<ResponseEntity<QueryResponse>> query(@RequestBody QueryRequest request) {
+    public Mono<ResponseEntity<QueryResponse>> query(@RequestBody final QueryRequest request) {
         return Mono.fromCallable(() -> {
             // Query vector DB for chunks
-            SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
-            List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
+            final SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
+            final List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
             // Extract chunks from results
-            List<String> chunks = searchResults.stream().map(Document::getText).toList();
+            final List<String> chunks = searchResults.stream().map(Document::getText).toList();
             // Resolve documents to IDs
-            ResolvedIds resolvedIds = resolveDocumentsToIds(searchResults);
+            final ResolvedIds resolvedIds = resolveDocumentsToIds(searchResults);
             // Return response
             return ResponseEntity.ok(new QueryResponse(
                 resolvedIds.getTranscriptRawIds(),
@@ -52,17 +52,17 @@ public class KnowledgeBaseController {
     }
 
     @PostMapping("/answer")
-    public Mono<ResponseEntity<AnswerResponse>> answer(@RequestBody QueryRequest request) {
+    public Mono<ResponseEntity<AnswerResponse>> answer(@RequestBody final QueryRequest request) {
         return Mono.fromCallable(() -> {
             // Query vector DB for chunks
-            SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
-            List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
+            final SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
+            final List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
             // Extract chunks from results
-            List<String> chunks = searchResults.stream().map(Document::getText).toList();
+            final List<String> chunks = searchResults.stream().map(Document::getText).toList();
             // Join chunks as context
-            String context = String.join("\n\n", chunks);
+            final String context = String.join("\n\n", chunks);
             // Create prompt
-            String prompt = String.format("""
+            final String prompt = String.format("""
                 Answer the following question based on the provided context. If the context does not contain enough information to answer the question, say so.
 
                 Question: %s
@@ -76,8 +76,8 @@ public class KnowledgeBaseController {
         .flatMap(mono -> mono);
     }
 
-    private Mono<String> callLLM(String prompt) {
-        WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
+    private Mono<String> callLLM(final String prompt) {
+        final WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -91,17 +91,17 @@ public class KnowledgeBaseController {
                 });
     }
 
-    private ResolvedIds resolveDocumentsToIds(List<Document> documents) {
+    private ResolvedIds resolveDocumentsToIds(final List<Document> documents) {
         final ImmutableList.Builder<UUID> transcriptRawIdsBuilder = ImmutableList.builder();
         final ImmutableList.Builder<UUID> transcriptExecutiveSummaryIdsBuilder = ImmutableList.builder();
         final ImmutableList.Builder<UUID> transcriptsHierarchicalRollupIdsBuilder = ImmutableList.builder();
 
-        for (Document doc : documents) {
-            Map<String, Object> metadata = doc.getMetadata();
-            String type = (String) metadata.get("type");
-            String transcriptIdStr = (String) metadata.get("transcriptId");
+        for (final Document doc : documents) {
+            final Map<String, Object> metadata = doc.getMetadata();
+            final String type = (String) metadata.get("type");
+            final String transcriptIdStr = (String) metadata.get("transcriptId");
             if (transcriptIdStr != null) {
-                UUID transcriptId = UUID.fromString(transcriptIdStr);
+                final UUID transcriptId = UUID.fromString(transcriptIdStr);
                 switch (type) {
                     case "chunk" -> transcriptRawIdsBuilder.add(transcriptId);
                     case "summary" -> transcriptExecutiveSummaryIdsBuilder.add(transcriptId);

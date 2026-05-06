@@ -17,18 +17,18 @@ public class TranscriptRawController {
     private final TranscriptRepository transcriptRepository;
     private final TranscriptService transcriptService;
 
-    public TranscriptRawController(TranscriptRepository transcriptRepository,
-                                     TranscriptService transcriptService) {
+    public TranscriptRawController(final TranscriptRepository transcriptRepository,
+                                   final TranscriptService transcriptService) {
         this.transcriptRepository = transcriptRepository;
         this.transcriptService = transcriptService;
     }
 
     @GetMapping("/{id}")
-    public Mono<ResponseEntity<DtoTranscriptRaw>> get(@PathVariable UUID id) {
+    public Mono<ResponseEntity<DtoTranscriptRaw>> get(@PathVariable final UUID id) {
         return transcriptRepository.findById(id)
             .<ResponseEntity<DtoTranscriptRaw>>flatMap(transcript -> {
                 if (transcript.getStatus() == LlmStatus.COMPLETED) {
-                    DtoTranscriptRaw response =
+                    final DtoTranscriptRaw response =
                             DtoTranscriptRaw.builder()
                                     .id(transcript.getId())
                                     .status(LlmStatus.PENDING)
@@ -36,7 +36,7 @@ public class TranscriptRawController {
                                     .build();
                     return Mono.just(ResponseEntity.ok(response));
                 } else if (transcript.getStatus() == LlmStatus.PROCESSING) {
-                    DtoTranscriptRaw response =
+                    final DtoTranscriptRaw response =
                             DtoTranscriptRaw.builder()
                                     .id(transcript.getId())
                                     .status(LlmStatus.PROCESSING)
@@ -44,10 +44,10 @@ public class TranscriptRawController {
                                     .build();
                     return Mono.just(ResponseEntity.accepted().body(response));
                 } else {
-                    return Mono.just(ResponseEntity.<DtoTranscriptRaw>badRequest().build());
+                    return Mono.just(ResponseEntity.badRequest().build());
                 }
             })
-            .defaultIfEmpty(ResponseEntity.<DtoTranscriptRaw>notFound().build());
+            .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
 

@@ -93,7 +93,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
         log.info("Subscribed to TranscriptWithEmbeddings event stream");
     }
 
-    private Mono<Void> processEvent(TranscriptWithEmbeddings event) {
+    private Mono<Void> processEvent(final TranscriptWithEmbeddings event) {
         return Mono.just(event)
         .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(this::processTranscriptWithEmbeddingsEvent)
@@ -101,7 +101,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
         .onErrorResume(e -> Mono.empty());
     }
 
-    private Mono<Void> processTranscriptWithEmbeddingsEvent(TranscriptWithEmbeddings transcriptWithEmbeddings) {
+    private Mono<Void> processTranscriptWithEmbeddingsEvent(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
         log.info("Processing event for TranscriptWithEmbeddings id: {}", transcriptWithEmbeddings.getId());
 
         return transcriptExecutiveSummaryRepository.findById(transcriptWithEmbeddings.getId())
@@ -113,16 +113,16 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
                 .then();
     }
 
-    private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(TranscriptWithEmbeddings transcriptWithEmbeddings) {
-        String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream()
+    private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
+        final String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream()
                 .map(ce -> ce.getChunk())
                 .collect(Collectors.joining(" "));
-        String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
+        final String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
 
         return callLLM(prompt)
                 .flatMap(result -> {
                     // Save summary to VectorStore
-                    Document summaryDoc = new Document(result, Map.of("transcriptId", transcriptWithEmbeddings.getTranscriptRawId().toString(), "type", "summary"));
+                    final Document summaryDoc = new Document(result, Map.of("transcriptId", transcriptWithEmbeddings.getTranscriptRawId().toString(), "type", "summary"));
                     vectorStore.add(List.of(summaryDoc));
 
                     // Update TranscriptWithEmbeddings
@@ -131,7 +131,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
                             .thenReturn(result);
                 })
                 .flatMap(result -> {
-                    TranscriptExecutiveSummary summary = new TranscriptExecutiveSummary();
+                    final TranscriptExecutiveSummary summary = new TranscriptExecutiveSummary();
                     summary.setId(UUID.randomUUID());
                     summary.setTranscriptWithEmbeddingsId(transcriptWithEmbeddings.getId());
                     summary.setResult(result);
@@ -144,8 +144,8 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
                 .doOnError(error -> log.error("Error processing summary for id: {}", transcriptWithEmbeddings.getId(), error));
     }
 
-    private Mono<String> callLLM(String prompt) {
-        WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
+    private Mono<String> callLLM(final String prompt) {
+        final WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)

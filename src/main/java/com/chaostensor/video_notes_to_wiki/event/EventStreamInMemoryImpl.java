@@ -13,9 +13,9 @@ public class EventStreamInMemoryImpl<T> implements EventStream<T> {
     }
 
     @Override
-    public Mono<Void> publish(T event) {
+    public Mono<Void> publish(final T event) {
         return Mono.fromRunnable(() -> {
-            Sinks.EmitResult result = sink.tryEmitNext(event);
+            final Sinks.EmitResult result = sink.tryEmitNext(event);
             if (result.isFailure()) {
                 // Handle emission failure, perhaps log or throw
                 throw new RuntimeException("Failed to emit event: " + result);

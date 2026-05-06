@@ -29,7 +29,7 @@ class VideoNotesToWikiApplicationTests {
 	static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
 
 	@DynamicPropertySource
-	static void registerProperties(DynamicPropertyRegistry registry) {
+	static void registerProperties(final DynamicPropertyRegistry registry) {
 		registry.add("spring.r2dbc.url", () -> postgresWithVector.getJdbcUrl().replace("jdbc:", "r2dbc:"));
 		registry.add("spring.r2dbc.username", postgresWithVector::getUsername);
 		registry.add("spring.r2dbc.password", postgresWithVector::getPassword);
