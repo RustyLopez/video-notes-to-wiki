@@ -4,9 +4,8 @@ import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import lombok.Value;
+import lombok.Builder;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -112,12 +111,11 @@ public class KnowledgeBaseController {
         return new ResolvedIds(transcriptRawIdsBuilder.build(), transcriptExecutiveSummaryIdsBuilder.build(), transcriptsHierarchicalRollupIdsBuilder.build());
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    @Value
+    @Builder
     public static class ResolvedIds {
-        private List<UUID> transcriptRawIds;
-        private List<UUID> transcriptExecutiveSummaryIds;
-        private List<UUID> transcriptsHierarchicalRollupIds;
+        private final ImmutableList<UUID> transcriptRawIds;
+        private final ImmutableList<UUID> transcriptExecutiveSummaryIds;
+        private final ImmutableList<UUID> transcriptsHierarchicalRollupIds;
     }
 }

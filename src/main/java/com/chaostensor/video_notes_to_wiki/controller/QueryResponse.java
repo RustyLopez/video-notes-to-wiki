@@ -1,17 +1,17 @@
 package com.chaostensor.video_notes_to_wiki.controller;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Builder;
+import lombok.Value;
+import lombok.extern.jackson.Jacksonized;
 
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 import java.util.UUID;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Jacksonized
+@Value
+@Builder
 public class QueryResponse {
-    private List<UUID> transcriptRawIds;
-    private List<UUID> transcriptExecutiveSummaryIds;
-    private List<UUID> transcriptsHierarchicalRollupIds;
+    private ImmutableList<UUID> transcriptRawIds;
+    private ImmutableList<UUID> transcriptExecutiveSummaryIds;
+    private ImmutableList<UUID> transcriptsHierarchicalRollupIds;
 }
