@@ -82,7 +82,7 @@ public class VideoProcessingScheduler {
         }
     }
 
-    private boolean isVideoFile(final Path path) {
+    boolean isVideoFile(final Path path) {
         final String fileName = path.getFileName().toString().toLowerCase();
         return fileName.endsWith(".mp4") || fileName.endsWith(".avi") || fileName.endsWith(".mov") || fileName.endsWith(".mkv");
     }
