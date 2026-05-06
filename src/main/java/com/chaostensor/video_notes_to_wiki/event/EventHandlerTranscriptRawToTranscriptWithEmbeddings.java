@@ -38,17 +38,14 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
     private final EventStream<TranscriptRaw> transcriptEventStream;
     private final TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository;
     private final TranscriptRepository transcriptRepository;
-    private final ChunkingConfig chunkingConfig;
     private final LlmConfig llmConfig;
     private final EmbeddingService embeddingService;
     private final VectorStore vectorStore;
     private final EventStream<TranscriptWithEmbeddings> eventStream;
-    private Disposable subscription;
 
     public EventHandlerTranscriptRawToTranscriptWithEmbeddings(final EventStream<TranscriptRaw> transcriptEventStream,
                                                                final TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository,
                                                                final TranscriptRepository transcriptRepository,
-                                                               final ChunkingConfig chunkingConfig,
                                                                final LlmConfig llmConfig,
                                                                final EmbeddingService embeddingService,
                                                                final VectorStore vectorStore,
@@ -56,7 +53,6 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
         this.transcriptEventStream = transcriptEventStream;
         this.transcriptWithEmbeddingsRepository = transcriptWithEmbeddingsRepository;
         this.transcriptRepository = transcriptRepository;
-        this.chunkingConfig = chunkingConfig;
         this.llmConfig = llmConfig;
         this.embeddingService = embeddingService;
         this.vectorStore = vectorStore;
@@ -65,13 +61,6 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
 
     @PostConstruct
     public void subscribe() {
-        subscription = transcriptEventStream.getEventStream()
-                .flatMap(this::processTranscriptEvent)
-                .subscribe(
-                        null, // onNext
-                        error -> logger.error("Error in transcript event stream subscription", error),
-                        () -> logger.info("Transcript event stream completed")
-                );
         logger.info("Subscribed to transcript event stream");
     }
 

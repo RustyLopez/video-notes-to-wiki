@@ -1,29 +1,26 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.Wiki;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.ai.vectorstore.SearchRequest;
-
 import com.chaostensor.video_notes_to_wiki.repository.WikiRepository;
-import com.google.errorprone.annotations.Immutable;
 import com.google.common.collect.ImmutableList;
-import tools.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-
-import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Value;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,7 +29,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,46 +44,42 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
 
     private final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream;
     private final WebClient webClient;
-    private final ObjectMapper objectMapper;
     private final WikiRepository wikiRepository;
     private final EventStream<Wiki> wikiResultEventStream;
     private final VectorStore vectorStore;
     @Value("${app.wiki-output}")
     private String outputDirectory;
-    private Disposable subscription;
 
     private static final String SYNTHESIS_PROMPT_TEMPLATE = """
             You are an expert knowledge architect building a comprehensive internal wiki from a series of videos.
-
+            
             Here is the polished documentation synthesized from each individual video:
-
+            
             {{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}
-
+            
             Additional relevant chunks from the vector database:
-
+            
             {{RELEVANT_CHUNKS}}
-
+            
             Synthesize all of this into a coherent, hierarchical knowledge base. Produce:
-
+            
             1. **Master Executive Summary** — one strong paragraph covering the entire series
             2. **Hierarchical Topic Structure** — organize the content into logical parent topics and subtopics (use markdown headings)
             3. **Cross-Video Insights & Connections** — highlight how ideas from different videos relate, reinforce each other, or contradict
             4. **Consolidated Action Item Tracker** — all action items with video references
             5. **Recommended Wiki Structure** — suggest actual wiki pages with titles and outline of sections for each page
             6. **Knowledge Gaps or Follow-up Topics** (if any)
-
+            
             Focus on creating something a new engineer could read and rapidly understand the key decisions, architecture, and current state of the project. Remove duplication across videos. Create clean hierarchy.
             """;
 
     public EventHandlerTranscriptsHierarchicalRollupToWiki(final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream,
                                                            final WebClient.Builder webClientBuilder,
-                                                           final ObjectMapper objectMapper,
                                                            final WikiRepository wikiRepository,
                                                            final EventStream<Wiki> wikiResultEventStream,
                                                            final VectorStore vectorStore) {
         this.compressedTranscriptsEventStream = compressedTranscriptsEventStream;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
-        this.objectMapper = objectMapper;
         this.wikiRepository = wikiRepository;
         this.wikiResultEventStream = wikiResultEventStream;
         this.vectorStore = vectorStore;
@@ -95,7 +87,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
 
     @PostConstruct
     public void subscribe() {
-        subscription = compressedTranscriptsEventStream.getEventStream()
+        compressedTranscriptsEventStream.getEventStream()
                 .flatMap(this::processCompressedTranscriptsEvent)
                 .subscribe(
                         null, // onNext
@@ -151,7 +143,6 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                     return Mono.empty();
                 });
     }
-
 
 
     private Mono<Void> processWikiPostProcessing(final Wiki wiki) {

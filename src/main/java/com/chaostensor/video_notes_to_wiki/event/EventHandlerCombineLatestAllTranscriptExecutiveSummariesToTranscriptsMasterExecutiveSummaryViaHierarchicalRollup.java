@@ -6,16 +6,16 @@ import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import com.chaostensor.video_notes_to_wiki.repository.TranscriptsHierarchicalRollupRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptsHierarchicalRollupRepository;
 import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
 import com.chaostensor.video_notes_to_wiki.util.TokenEstimator;
-import io.jchunk.semantic.embedder.Embedder;
+import com.google.common.collect.ImmutableList;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.google.common.collect.ImmutableList;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -23,10 +23,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import jakarta.annotation.PostConstruct;
-
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,13 +34,14 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
+ *
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup implements EventHandler<TranscriptExecutiveSummary> {
 
-    private static EmbeddingService embeddingService;
+    private final EmbeddingService embeddingService;
     private final EventStream<TranscriptExecutiveSummary> wikiReadyTranscriptEventStream;
     private final TranscriptExecutiveSummaryRepository transcriptExecutiveSummaryRepository;
     private final TranscriptsHierarchicalRollupRepository transcriptsHierarchicalRollupRepository;
@@ -138,7 +136,6 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     }
 
 
-
     private Mono<String> chunkAndSummarizeIteratively(final List<TranscriptExecutiveSummary> allSummaries) {
         if (allSummaries.isEmpty()) {
             return Mono.empty();
@@ -226,10 +223,8 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         final int targetWords = (int) Math.ceil(approxWords * llmConfig.getHierarchicalSummaryStrategyConfigsPerLayerReductionRatio());
 
 
-
-
         final String prompt = HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE
-                .replace("{{PRIOR_LAYER}}", String.valueOf(layerNumber-1))
+                .replace("{{PRIOR_LAYER}}", String.valueOf(layerNumber - 1))
                 .replace("{{CURRENT_LAYER}}", String.valueOf(layerNumber))
                 .replace("{{TOTAL_INPUT_TOKENS_OR_WORDS}}", totalTokens + " tokens")
                 .replace("{{APPROX_WORD_COUNT}}", String.valueOf(approxWords))
@@ -295,7 +290,8 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         vectorStore.add(documents);
         return Mono.just(saved);
     }
-    private static Mono<List<TranscriptWithEmbeddings.ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
+
+    private Mono<List<TranscriptWithEmbeddings.ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
         return Mono.fromCallable(() -> chunkByBulletPointsSectionHeadersAndDoubleNewlines(summary))
                 .flatMap(chunks -> {
                     if (chunks.isEmpty()) {
@@ -303,10 +299,10 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                     }
 
                     return Flux.zip(
-                            Flux.fromIterable(chunks),
-                            Mono.fromCallable(() -> embeddingService.embed(chunks))
-                                    .flatMapMany(Flux::fromIterable)
-                    )
+                                    Flux.fromIterable(chunks),
+                                    Mono.fromCallable(() -> embeddingService.embed(chunks))
+                                            .flatMapMany(Flux::fromIterable)
+                            )
                             .map(tuple -> {
                                 return new TranscriptWithEmbeddings.ChunkEmbedding(tuple.getT1(), tuple.getT2());
                             })
@@ -316,6 +312,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
 
     /**
      * TODO decie a bette mrethod
+     *
      * @param summary
      * @return
      */
@@ -323,7 +320,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
 
         final ImmutableList.Builder<String> chunks = ImmutableList.builder();
         // Simple regex to split by level 1 headings (# )
-          // TODO confirm the U+2022 char is correctly here for the regex. right there, test teh
+        // TODO confirm the U+2022 char is correctly here for the regex. right there, test teh
         // regex in generaly
         // may need..  yeah..
         final Pattern pattern = Pattern.compile("(#+|\\n\\n+|\\*+|\\u2022)");

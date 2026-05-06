@@ -115,7 +115,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
 
     private Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
         final String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream()
-                .map(ce -> ce.getChunk())
+                .map(TranscriptWithEmbeddings.ChunkEmbedding::getChunk)
                 .collect(Collectors.joining(" "));
         final String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
 
@@ -159,11 +159,4 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
                 });
     }
 
-    // Optionally, for shutdown
-    // @PreDestroy
-    // public void unsubscribe() {
-    //     if (subscription != null) {
-    //         subscription.dispose();
-    //     }
-    // }
 }

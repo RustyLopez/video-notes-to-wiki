@@ -1,10 +1,10 @@
 package com.chaostensor.video_notes_to_wiki.controller;
 
+import com.google.common.collect.ImmutableList;
 import lombok.Builder;
 import lombok.Value;
 import lombok.extern.jackson.Jacksonized;
 
-import com.google.common.collect.ImmutableList;
 import java.util.UUID;
 
 @Jacksonized
