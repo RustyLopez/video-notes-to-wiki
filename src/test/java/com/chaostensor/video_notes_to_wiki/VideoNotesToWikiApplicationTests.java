@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 
@@ -24,6 +25,9 @@ class VideoNotesToWikiApplicationTests {
 			.withUsername("test")
 			.withPassword("test");
 
+	@Container
+	static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
+
 	@DynamicPropertySource
 	static void registerProperties(DynamicPropertyRegistry registry) {
 		registry.add("spring.r2dbc.url", () -> postgresWithVector.getJdbcUrl().replace("jdbc:", "r2dbc:"));
@@ -35,6 +39,8 @@ class VideoNotesToWikiApplicationTests {
 		registry.add("spring.datasource.password", postgresWithVector::getPassword);
 		registry.add("spring.datasource.driver-class-name", ()->"org.postgresql.Driver");
 
+		registry.add("spring.ai.ollama.base-url", ollama::getEndpoint);
+		registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never");
 	}
 
 	@Autowired
