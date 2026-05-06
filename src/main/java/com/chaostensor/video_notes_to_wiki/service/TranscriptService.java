@@ -74,7 +74,7 @@ public class TranscriptService {
                                 }
                                 return Mono.empty();
                             })
-                            .subscribe();
+                            .subscribe(v -> {}, error -> logger.error("Error processing transcript", error));
                 });
     }
 

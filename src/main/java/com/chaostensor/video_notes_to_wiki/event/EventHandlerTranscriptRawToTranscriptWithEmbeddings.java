@@ -8,7 +8,6 @@ import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.config.ChunkingConfig;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import io.jchunk.core.chunk.Chunk;
@@ -91,7 +90,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                 .doOnNext(saved -> {
                     // Start async processing to create chunks and embeddings
-                    processTranscriptWithEmbeddings(saved.getId()).subscribe();
+                    processTranscriptWithEmbeddings(saved.getId()).subscribe(v -> {}, error -> logger.error("Error processing transcript with embeddings", error));
                 })
                 .then();
     }

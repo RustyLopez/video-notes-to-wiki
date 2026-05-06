@@ -92,7 +92,7 @@ public class VideoProcessingScheduler {
                                 return reactor.core.publisher.Mono.empty();
                             }
                         })
-                        .subscribe();
+                        .subscribe(v -> {}, error -> logger.error("Error processing video file", error));
             }
         } catch (IOException e) {
             logger.error("Error scanning video drop directory", e);
