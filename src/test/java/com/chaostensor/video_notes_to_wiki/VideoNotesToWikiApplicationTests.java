@@ -16,7 +16,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 @SpringBootTest
 @ActiveProfiles(profiles = "test")
-@TestPropertySource
 class VideoNotesToWikiApplicationTests {
 
 	@Container
