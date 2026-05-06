@@ -1,34 +1,31 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
-import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
-import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
-import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.config.ChunkingConfig;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
 import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
 import io.jchunk.core.chunk.Chunk;
 import io.jchunk.fixed.Config;
 import io.jchunk.fixed.FixedChunker;
 import io.jchunk.recursive.RecursiveCharacterChunker;
 import io.jchunk.semantic.SemanticChunker;
-import io.jchunk.semantic.embedder.Embedder;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
-import jakarta.annotation.PostConstruct;
-
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -90,7 +87,8 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                 .doOnNext(saved -> {
                     // Start async processing to create chunks and embeddings
-                    processTranscriptWithEmbeddings(saved.getId()).subscribe(v -> {}, error -> logger.error("Error processing transcript with embeddings", error));
+                    processTranscriptWithEmbeddings(saved.getId()).subscribe(v -> {
+                    }, error -> logger.error("Error processing transcript with embeddings", error));
                 })
                 .then();
     }
@@ -143,7 +141,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                                      * we'll do both with sentences taking priority and faling back in another flatmap
                                      * to fixed length if all else fails.
                                      */
-                                    if (c.length() <  maxIdealChunkSize){
+                                    if (c.length() < maxIdealChunkSize) {
                                         return Stream.of(c);
                                     }
                                     return sentenceChunker.split(c).stream().map(Chunk::content);
@@ -166,10 +164,10 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
 
                         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                                 .flatMap(saved -> {
-                                     // Save chunks to vector database
-                                     final List<Document> documents = chunks.stream()
-                                             .map(chunk -> new Document(chunk, Map.of("transcriptId", transcriptRaw.getId().toString(), "type", "chunk")))
-                                             .toList();
+                                    // Save chunks to vector database
+                                    final List<Document> documents = chunks.stream()
+                                            .map(chunk -> new Document(chunk, Map.of("transcriptId", transcriptRaw.getId().toString(), "type", "chunk")))
+                                            .toList();
                                     vectorStore.add(documents);
                                     return Mono.just(saved);
                                 })
