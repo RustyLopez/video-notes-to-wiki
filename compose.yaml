@@ -87,6 +87,7 @@ services:
       TRANSCRIPT_OUTPUT: /transcript-output
       VIDEO_OUTPUT: /video-output
     volumes:
+      - ./models:/root/.cache
       - ./media-input:/media-input
       - ./transcript-output:/transcript-output
       - ./video-output:/video-output
