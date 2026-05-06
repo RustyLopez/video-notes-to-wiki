@@ -64,3 +64,10 @@ app:
     threadPoolSize: 5
     maxMemoryUsageMb: 1024
     promptOverheadTokens: 500
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+app:
