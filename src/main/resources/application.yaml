@@ -47,9 +47,8 @@ spring:
         table-name: vector_store
 
 app:
-  media-input: ${MEDIA_INPUT:./media-input} # TODO use an env var with a fallback to the process working dir / media
-  video-has-been-transcribed-dir: ${VIDEO_HAS_BEEN_TRANSCRIBED_DIR:./video-has-been-transcribed-dir} # TODO use an env var with a fallback to the process working dir / media
-  wiki-output: ${WIKI_OUTPUT:./wiki-output} # TODO use an env var with a fallback to the process working dir / media
+  media-input: ${MEDIA_INPUT:./media-input}
+  wiki-output: ${WIKI_OUTPUT:./wiki-output}
   llm:
     chat:
       models:
@@ -65,3 +64,10 @@ app:
     threadPoolSize: 5
     maxMemoryUsageMb: 1024
     promptOverheadTokens: 500
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+app:

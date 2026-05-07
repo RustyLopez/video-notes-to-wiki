@@ -1,35 +1,31 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
-import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
-import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
-import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.config.ChunkingConfig;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
 import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import com.chaostensor.video_notes_to_wiki.service.EmbeddingService;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
 import io.jchunk.core.chunk.Chunk;
 import io.jchunk.fixed.Config;
 import io.jchunk.fixed.FixedChunker;
 import io.jchunk.recursive.RecursiveCharacterChunker;
 import io.jchunk.semantic.SemanticChunker;
-import io.jchunk.semantic.embedder.Embedder;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
-import jakarta.annotation.PostConstruct;
-
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -42,25 +38,21 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
     private final EventStream<TranscriptRaw> transcriptEventStream;
     private final TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository;
     private final TranscriptRepository transcriptRepository;
-    private final ChunkingConfig chunkingConfig;
     private final LlmConfig llmConfig;
     private final EmbeddingService embeddingService;
     private final VectorStore vectorStore;
     private final EventStream<TranscriptWithEmbeddings> eventStream;
-    private Disposable subscription;
 
-    public EventHandlerTranscriptRawToTranscriptWithEmbeddings(EventStream<TranscriptRaw> transcriptEventStream,
-                                                                 TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository,
-                                                                 TranscriptRepository transcriptRepository,
-                                                                 ChunkingConfig chunkingConfig,
-                                                                 LlmConfig llmConfig,
-                                                                 EmbeddingService embeddingService,
-                                                                 VectorStore vectorStore,
-                                                                 EventStream<TranscriptWithEmbeddings> eventStream) {
+    public EventHandlerTranscriptRawToTranscriptWithEmbeddings(final EventStream<TranscriptRaw> transcriptEventStream,
+                                                               final TranscriptWithEmbeddingsRepository transcriptWithEmbeddingsRepository,
+                                                               final TranscriptRepository transcriptRepository,
+                                                               final LlmConfig llmConfig,
+                                                               final EmbeddingService embeddingService,
+                                                               final VectorStore vectorStore,
+                                                               final EventStream<TranscriptWithEmbeddings> eventStream) {
         this.transcriptEventStream = transcriptEventStream;
         this.transcriptWithEmbeddingsRepository = transcriptWithEmbeddingsRepository;
         this.transcriptRepository = transcriptRepository;
-        this.chunkingConfig = chunkingConfig;
         this.llmConfig = llmConfig;
         this.embeddingService = embeddingService;
         this.vectorStore = vectorStore;
@@ -69,20 +61,19 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
 
     @PostConstruct
     public void subscribe() {
-        subscription = transcriptEventStream.getEventStream()
+        transcriptEventStream.getEventStream()
                 .flatMap(this::processTranscriptEvent)
                 .subscribe(
-                        null, // onNext
+                        null,
                         error -> logger.error("Error in transcript event stream subscription", error),
                         () -> logger.info("Transcript event stream completed")
                 );
         logger.info("Subscribed to transcript event stream");
     }
 
-    private reactor.core.publisher.Mono<Void> processTranscriptEvent(TranscriptRaw transcriptRaw) {
+    reactor.core.publisher.Mono<Void> processTranscriptEvent(final TranscriptRaw transcriptRaw) {
         // Create a transcript with embeddings for this completed transcript
-        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
-        transcriptWithEmbeddings.setId(UUID.randomUUID());
+        final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setTranscriptRawId(transcriptRaw.getId());
         transcriptWithEmbeddings.setStatus(LlmStatus.PENDING);
         transcriptWithEmbeddings.setCreatedAt(LocalDateTime.now());
@@ -91,12 +82,13 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                 .doOnNext(saved -> {
                     // Start async processing to create chunks and embeddings
-                    processTranscriptWithEmbeddings(saved.getId()).subscribe();
+                    processTranscriptWithEmbeddings(saved.getId()).subscribe(v -> {
+                    }, error -> logger.error("Error processing transcript with embeddings", error));
                 })
                 .then();
     }
 
-    private Mono<TranscriptWithEmbeddings> processTranscriptWithEmbeddings(UUID transcriptWithEmbeddingsId) {
+    Mono<TranscriptWithEmbeddings> processTranscriptWithEmbeddings(final UUID transcriptWithEmbeddingsId) {
         return transcriptWithEmbeddingsRepository.findById(transcriptWithEmbeddingsId)
                 .flatMap(transcriptWithEmbeddings -> {
                     transcriptWithEmbeddings.setStatus(LlmStatus.PROCESSING);
@@ -106,11 +98,11 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                 });
     }
 
-    private Mono<TranscriptWithEmbeddings> processTranscript(TranscriptWithEmbeddings transcriptWithEmbeddings) {
+    Mono<TranscriptWithEmbeddings> processTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
         return transcriptRepository.findById(transcriptWithEmbeddings.getTranscriptRawId())
                 .flatMap(transcriptRaw -> {
                     try {
-                        String transcriptContent = transcriptRaw.getTranscript();
+                        final String transcriptContent = transcriptRaw.getTranscript();
                         if (transcriptContent == null) {
                             transcriptWithEmbeddings.setStatus(LlmStatus.FAILED);
                             return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings);
@@ -130,11 +122,11 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                          *  But then to actually generate the embeddings for the entire chunk.
                          */
                         final int maxIdealChunkSize = determineIdealMaxChunkSizeForSingleTranscriptChunks();
-                        SemanticChunker chunker = new SemanticChunker(embeddingService::embed);
-                        RecursiveCharacterChunker sentenceChunker = new RecursiveCharacterChunker(io.jchunk.recursive.Config.builder().chunkSize(maxIdealChunkSize).build());
+                        final SemanticChunker chunker = new SemanticChunker(embeddingService::embed);
+                        final RecursiveCharacterChunker sentenceChunker = new RecursiveCharacterChunker(io.jchunk.recursive.Config.builder().chunkSize(maxIdealChunkSize).build());
                         // TODO configure this fixed chunker better
-                        FixedChunker fixedChunker = new FixedChunker(Config.builder().chunkSize(maxIdealChunkSize).build());
-                        List<String> chunks = chunker.split(transcriptContent).stream()
+                        final FixedChunker fixedChunker = new FixedChunker(Config.builder().chunkSize(maxIdealChunkSize).build());
+                        final List<String> chunks = chunker.split(transcriptContent).stream()
                                 .map(Chunk::content)
                                 .flatMap(c -> {
                                     /*
@@ -144,7 +136,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                                      * we'll do both with sentences taking priority and faling back in another flatmap
                                      * to fixed length if all else fails.
                                      */
-                                    if (c.length() <  maxIdealChunkSize){
+                                    if (c.length() < maxIdealChunkSize) {
                                         return Stream.of(c);
                                     }
                                     return sentenceChunker.split(c).stream().map(Chunk::content);
@@ -156,8 +148,8 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                                 }).collect(Collectors.toList());
 
                         // Generate embeddings for chunks (keep for db storage)
-                        List<float[]> embeddings = embeddingService.embed(chunks);
-                        List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = IntStream.range(0, chunks.size())
+                        final List<float[]> embeddings = embeddingService.embed(chunks);
+                        final List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = IntStream.range(0, chunks.size())
                                 .mapToObj(i -> new TranscriptWithEmbeddings.ChunkEmbedding(chunks.get(i), embeddings.get(i)))
                                 .toList();
 
@@ -167,16 +159,16 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
 
                         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                                 .flatMap(saved -> {
-                                     // Save chunks to vector database
-                                     List<Document> documents = chunks.stream()
-                                             .map(chunk -> new Document(chunk, Map.of("transcriptId", transcriptRaw.getId().toString(), "type", "chunk")))
-                                             .toList();
+                                    // Save chunks to vector database
+                                    final List<Document> documents = chunks.stream()
+                                            .map(chunk -> new Document(chunk, Map.of("transcriptId", transcriptRaw.getId().toString(), "type", "chunk")))
+                                            .toList();
                                     vectorStore.add(documents);
                                     return Mono.just(saved);
                                 })
                                 .flatMap(saved -> eventStream.publish(saved).thenReturn(saved));
 
-                    } catch (Exception e) {
+                    } catch (final Exception e) {
                         logger.error("Error processing transcript with embeddings for id: {}", transcriptWithEmbeddings.getId(), e);
                         transcriptWithEmbeddings.setStatus(LlmStatus.FAILED);
                         transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
@@ -189,7 +181,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                 }));
     }
 
-    private int determineIdealMaxChunkSizeForSingleTranscriptChunks() {
+    int determineIdealMaxChunkSizeForSingleTranscriptChunks() {
         return llmConfig.getMaxChunkTokens();
     }
 }

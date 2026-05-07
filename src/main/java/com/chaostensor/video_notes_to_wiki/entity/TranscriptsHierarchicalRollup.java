@@ -6,8 +6,9 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * NOTE may be very large we  probably want to .. partition and expire rows here. Could get away
@@ -24,7 +25,7 @@ public class TranscriptsHierarchicalRollup {
     private String compressedResult;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private List<TranscriptWithEmbeddings.ChunkEmbedding> chunksWithEmbeddings;
+    private ImmutableList<TranscriptWithEmbeddings.ChunkEmbedding> chunksWithEmbeddings;
 
 
 }

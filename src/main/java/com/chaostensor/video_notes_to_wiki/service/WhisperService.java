@@ -18,19 +18,19 @@ public class WhisperService {
 
     private final WebClient webClient;
 
-    public WhisperService(WebClient.Builder builder) {
+    public WhisperService(final WebClient.Builder builder) {
         // TODO allow the runner to be configurable as either insanley-fast-whisper, or whisper-x or speaches
         //   with that latter being currently in its own container but the former two currently sharing a container
         //   but at different endpoints.
         this.webClient = builder.baseUrl("http://localhost:8081/insanely-fast-whisper").build();
     }
 
-    public Mono<String> transcribeVideo(String filePath) {
-        String fileName = java.nio.file.Paths.get(filePath).getFileName().toString();
+    public Mono<String> transcribeVideo(final String filePath) {
+        final String fileName = java.nio.file.Paths.get(filePath).getFileName().toString();
         return transcribeSingle(fileName, filePath);
     }
 
-    public Mono<Map<String, String>> transcribeVideos(Map<String, String> filePaths) {
+    public Mono<Map<String, String>> transcribeVideos(final Map<String, String> filePaths) {
         // For each file, call transcribe and collect results
         return Mono.zip(
             filePaths.entrySet().stream()
@@ -43,7 +43,7 @@ public class WhisperService {
         );
     }
 
-    private Mono<String> transcribeSingle(String fileName, String filePath) {
+    private Mono<String> transcribeSingle(final String fileName, final String filePath) {
         return webClient.post()
             .uri("")
             .contentType(MediaType.APPLICATION_JSON)

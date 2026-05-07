@@ -6,9 +6,10 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+
+import com.google.common.collect.ImmutableList;
 
 @Table("transcript_with_embeddings")
 @Data
@@ -33,8 +34,8 @@ public class TranscriptWithEmbeddings {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public List<ChunkEmbedding> getChunkEmbeddings() {
-        return chunkEmbeddings != null ? Collections.unmodifiableList(chunkEmbeddings) : Collections.emptyList();
+    public ImmutableList<ChunkEmbedding> getChunkEmbeddings() {
+        return chunkEmbeddings != null ? ImmutableList.copyOf(chunkEmbeddings) : ImmutableList.of();
     }
 
 

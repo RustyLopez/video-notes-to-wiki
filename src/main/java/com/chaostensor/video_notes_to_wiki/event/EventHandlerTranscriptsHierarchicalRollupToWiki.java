@@ -1,29 +1,26 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.Wiki;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.ai.vectorstore.SearchRequest;
-
 import com.chaostensor.video_notes_to_wiki.repository.WikiRepository;
-import com.google.errorprone.annotations.Immutable;
 import com.google.common.collect.ImmutableList;
-import tools.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-
-import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Value;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,7 +29,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,46 +44,42 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
 
     private final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream;
     private final WebClient webClient;
-    private final ObjectMapper objectMapper;
     private final WikiRepository wikiRepository;
     private final EventStream<Wiki> wikiResultEventStream;
     private final VectorStore vectorStore;
     @Value("${app.wiki-output}")
     private String outputDirectory;
-    private Disposable subscription;
 
     private static final String SYNTHESIS_PROMPT_TEMPLATE = """
             You are an expert knowledge architect building a comprehensive internal wiki from a series of videos.
-
+            
             Here is the polished documentation synthesized from each individual video:
-
+            
             {{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}
-
+            
             Additional relevant chunks from the vector database:
-
+            
             {{RELEVANT_CHUNKS}}
-
+            
             Synthesize all of this into a coherent, hierarchical knowledge base. Produce:
-
+            
             1. **Master Executive Summary** — one strong paragraph covering the entire series
             2. **Hierarchical Topic Structure** — organize the content into logical parent topics and subtopics (use markdown headings)
             3. **Cross-Video Insights & Connections** — highlight how ideas from different videos relate, reinforce each other, or contradict
             4. **Consolidated Action Item Tracker** — all action items with video references
             5. **Recommended Wiki Structure** — suggest actual wiki pages with titles and outline of sections for each page
             6. **Knowledge Gaps or Follow-up Topics** (if any)
-
+            
             Focus on creating something a new engineer could read and rapidly understand the key decisions, architecture, and current state of the project. Remove duplication across videos. Create clean hierarchy.
             """;
 
-    public EventHandlerTranscriptsHierarchicalRollupToWiki(EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream,
-                                                             WebClient.Builder webClientBuilder,
-                                                             ObjectMapper objectMapper,
-                                                             WikiRepository wikiRepository,
-                                                             EventStream<Wiki> wikiResultEventStream,
-                                                             VectorStore vectorStore) {
+    public EventHandlerTranscriptsHierarchicalRollupToWiki(final EventStream<TranscriptsHierarchicalRollup> compressedTranscriptsEventStream,
+                                                           final WebClient.Builder webClientBuilder,
+                                                           final WikiRepository wikiRepository,
+                                                           final EventStream<Wiki> wikiResultEventStream,
+                                                           final VectorStore vectorStore) {
         this.compressedTranscriptsEventStream = compressedTranscriptsEventStream;
         this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
-        this.objectMapper = objectMapper;
         this.wikiRepository = wikiRepository;
         this.wikiResultEventStream = wikiResultEventStream;
         this.vectorStore = vectorStore;
@@ -95,7 +87,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
 
     @PostConstruct
     public void subscribe() {
-        subscription = compressedTranscriptsEventStream.getEventStream()
+        compressedTranscriptsEventStream.getEventStream()
                 .flatMap(this::processCompressedTranscriptsEvent)
                 .subscribe(
                         null, // onNext
@@ -105,8 +97,8 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
         logger.info("Subscribed to WikiReadyTranscript event stream");
     }
 
-    private Mono<Void> processCompressedTranscriptsEvent(TranscriptsHierarchicalRollup transcriptsHierarchicalRollup) {
-        String allTranscripts = transcriptsHierarchicalRollup.getCompressedResult();
+    private Mono<Void> processCompressedTranscriptsEvent(final TranscriptsHierarchicalRollup transcriptsHierarchicalRollup) {
+        final String allTranscripts = transcriptsHierarchicalRollup.getCompressedResult();
 
         // Fetch most relevant chunks
         /*
@@ -118,21 +110,20 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
          * summary can be pulled in and added to the final context.
          */
         return Mono.fromCallable(() -> {
-                    SearchRequest searchRequest = SearchRequest.builder().query(transcriptsHierarchicalRollup.getCompressedResult()).topK(100).build();
-                    List<Document> docs = vectorStore.similaritySearch(searchRequest);
+                    final SearchRequest searchRequest = SearchRequest.builder().query(transcriptsHierarchicalRollup.getCompressedResult()).topK(100).build();
+                    final List<Document> docs = vectorStore.similaritySearch(searchRequest);
                     return docs.stream().map(Document::getText).toList();
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(relevantChunks -> {
-                    String combinedChunks = String.join("\n\n", relevantChunks);
-                    String prompt = SYNTHESIS_PROMPT_TEMPLATE
+                    final String combinedChunks = String.join("\n\n", relevantChunks);
+                    final String prompt = SYNTHESIS_PROMPT_TEMPLATE
                             .replace("{{ALL_WIKI_READY_TRANSCRIPTS_FOR_A_GIVEN_JOB}}", allTranscripts)
                             .replace("{{RELEVANT_CHUNKS}}", combinedChunks);
                     return callLLM(prompt);
                 })
                 .flatMap(result -> {
-                    Wiki wiki = new Wiki();
-                    wiki.setId(UUID.randomUUID());
+                    final Wiki wiki = new Wiki();
                     wiki.setTranscriptId(transcriptsHierarchicalRollup.getId()); // Link to the compressed transcripts
                     wiki.setResult(result);
                     wiki.setCreatedAt(LocalDateTime.now());
@@ -145,7 +136,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 .then()
                 .onErrorResume(e -> {
                     logger.error("Error processing CompressedTranscripts event", e);
-                    for (StackTraceElement element : e.getStackTrace()) {
+                    for (final StackTraceElement element : e.getStackTrace()) {
                         logger.error(element.toString());
                     }
                     return Mono.empty();
@@ -153,14 +144,13 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
     }
 
 
-
-    private Mono<Void> processWikiPostProcessing(Wiki wiki) {
+    private Mono<Void> processWikiPostProcessing(final Wiki wiki) {
         return Mono.fromCallable(() -> chunkWikiByPage(wiki.getResult()))
                 .flatMap(chunks -> {
                     if (chunks.isEmpty()) {
                         return Mono.empty();
                     }
-                    List<Document> documents = chunks.stream()
+                    final List<Document> documents = chunks.stream()
                             .map(chunk -> new Document(chunk, Map.of("transcriptId", wiki.getId().toString(), "type", "hierarchical")))
                             .toList();
                     vectorStore.add(documents);
@@ -170,15 +160,15 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 .then();
     }
 
-    private List<String> chunkWikiByPage(String wikiResult) {
+    private ImmutableList<String> chunkWikiByPage(final String wikiResult) {
         final ImmutableList.Builder<String> chunks = ImmutableList.builder();
         // Simple regex to split by level 1 headings (# )
-        Pattern pattern = Pattern.compile("^#\\s+(.+)$", Pattern.MULTILINE);
-        Matcher matcher = pattern.matcher(wikiResult);
+        final Pattern pattern = Pattern.compile("^#\\s+(.+)$", Pattern.MULTILINE);
+        final Matcher matcher = pattern.matcher(wikiResult);
         int lastEnd = 0;
         while (matcher.find()) {
             if (lastEnd > 0) {
-                String chunk = wikiResult.substring(lastEnd, matcher.start()).trim();
+                final String chunk = wikiResult.substring(lastEnd, matcher.start()).trim();
                 if (!chunk.isEmpty()) {
                     chunks.add(chunk);
                 }
@@ -187,7 +177,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
         }
         // Add the last chunk
         if (lastEnd < wikiResult.length()) {
-            String chunk = wikiResult.substring(lastEnd).trim();
+            final String chunk = wikiResult.substring(lastEnd).trim();
             if (!chunk.isEmpty()) {
                 chunks.add(chunk);
             }
@@ -195,19 +185,19 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
         return chunks.build();
     }
 
-    private Void zipAndSaveWiki(Wiki wiki) throws IOException {
+    private Void zipAndSaveWiki(final Wiki wiki) throws IOException {
         // Ensure output directory exists
-        Path outputDir = Paths.get(outputDirectory);
+        final Path outputDir = Paths.get(outputDirectory);
         Files.createDirectories(outputDir);
 
         // Generate filename with timestamp
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String filename = "wiki-" + timestamp + ".zip";
-        Path zipFilePath = outputDir.resolve(filename);
+        final String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        final String filename = "wiki-" + timestamp + ".zip";
+        final Path zipFilePath = outputDir.resolve(filename);
 
-        try (FileOutputStream fos = new FileOutputStream(zipFilePath.toFile());
-             ZipOutputStream zos = new ZipOutputStream(fos)) {
-            ZipEntry entry = new ZipEntry("wiki.md");
+        try (final FileOutputStream fos = new FileOutputStream(zipFilePath.toFile());
+             final ZipOutputStream zos = new ZipOutputStream(fos)) {
+            final ZipEntry entry = new ZipEntry("wiki.md");
             zos.putNextEntry(entry);
             zos.write(wiki.getResult().getBytes());
             zos.closeEntry();
@@ -217,7 +207,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
         return null;
     }
 
-    private Mono<String> callLLM(String prompt) {
+    private Mono<String> callLLM(final String prompt) {
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -227,7 +217,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 .map(LLMResponse::getResult)
                 .onErrorResume(e -> {
                     logger.error("Error calling LLM for synthesis", e);
-                    for (StackTraceElement element : e.getStackTrace()) {
+                    for (final StackTraceElement element : e.getStackTrace()) {
                         logger.error(element.toString());
                     }
                     return Mono.error(e);

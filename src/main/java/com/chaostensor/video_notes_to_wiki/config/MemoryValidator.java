@@ -15,15 +15,15 @@ public class MemoryValidator implements CommandLineRunner {
     private final TokenEstimator tokenEstimator;
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(final String... args) throws Exception {
         validateMemoryConstraints();
     }
 
     private void validateMemoryConstraints() {
-        long maxMemory = Runtime.getRuntime().maxMemory();
-        long maxMemoryMb = maxMemory / (1024 * 1024);
+        final long maxMemory = Runtime.getRuntime().maxMemory();
+        final long maxMemoryMb = maxMemory / (1024 * 1024);
 
-        long requiredMemoryMb = Math.max(
+        final long requiredMemoryMb = Math.max(
             llmConfig.getContextWindowTokens() * 2L, // Rough estimate: 2 bytes per token for storage
             llmConfig.getMaxMemoryUsageMb()
         );
