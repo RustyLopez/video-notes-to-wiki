@@ -30,24 +30,17 @@ public class WhisperService {
     }
 
     public Mono<String> transcribeVideo(final String filePath) {
+        // TODO we  have some implementation coupling here perhaps
+        //   the service expects a file name relative to its mounted volume
+        //  which is fine, but this method is accepting a path, not a name..
+        // and so is assuming that its file path is identical where in reality
+        // this service could be mounting the files to a different path within the container or host environment.
+        // going to leave this for now but we need to clean it up eventually
         final String fileName = java.nio.file.Paths.get(filePath).getFileName().toString();
-        return transcribeSingle(fileName, filePath);
+        return transcribeSingle(fileName);
     }
 
-    public Mono<Map<String, String>> transcribeVideos(final Map<String, String> filePaths) {
-        // For each file, call transcribe and collect results
-        return Mono.zip(
-            filePaths.entrySet().stream()
-                .map(entry -> transcribeSingle(entry.getKey(), entry.getValue())
-                    .map(transcript -> Map.entry(entry.getKey(), transcript)))
-                .collect(Collectors.toList()),
-            results -> Arrays.stream(results)
-                .map(obj -> (Map.Entry<String, String>) obj)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
-        );
-    }
-
-    private Mono<String> transcribeSingle(final String fileName, final String filePath) {
+    private Mono<String> transcribeSingle(final String fileName) {
         return webClient.post()
             .uri("")
             .contentType(MediaType.APPLICATION_JSON)
@@ -71,16 +64,16 @@ public class WhisperService {
             .flatMap(response -> {
                 if (response.getStatus() instanceof CompletedStatus completed) {
                     return Mono.just(completed.transcriptData());
-                } else if (response.getStatus() instanceof FailedStatus) {
-                    return Mono.error(new RuntimeException("Transcription failed for job " + jobId));
-                } else if (response.getStatus() instanceof PendingStatus) {
-                    return Mono.delay(java.time.Duration.ofSeconds(5))
-                        .then(Mono.defer(() -> pollForResult(jobId)));
-                } else {
-                    return Mono.error(new RuntimeException("Unknown status for job " + jobId));
                 }
+                if (response.getStatus() instanceof FailedStatus) {
+                    return Mono.error(new RuntimeException("Transcription failed for job " + jobId));
+                }
+                return Mono.error(new RuntimeException("Unknown status for job " + jobId));
+
             })
-            .timeout(java.time.Duration.ofMinutes(30)) // timeout after 30 minutes
-            .retryWhen(Retry.backoff(3, java.time.Duration.ofSeconds(5))); // retry on error
+            .timeout(java.time.Duration.ofMinutes(30)) // timeout after 30 minutes TODO: make this configurable or.. even discoverable .. or inferrable.  It can be pretty long...
+                // k we need a much longer backoff here if we are going to actually wait 30 minutes.
+                // TODO these two configurations are kind of interdependent, maybe derive the timeout from teh backoff or vice versa.
+            .retryWhen(Retry.backoff(30, java.time.Duration.ofSeconds(60))); // retry on error
     }
 }

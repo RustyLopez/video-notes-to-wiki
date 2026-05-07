@@ -73,16 +73,15 @@ public class TranscriptService {
         transcriptRaw.setStatus(LlmStatus.PROCESSING);
         // note seems like a redundant save but we are changing status to processing.
         // probably not necessary but I'm going to leave it for now.
-        return transcriptRepository.save(transcriptRaw).flatMap(savedTranscript -> {
-            return whisperService.transcribeVideo(savedTranscript.getVideoPath()).flatMap(transcriptText -> {
-                savedTranscript.setTranscript(transcriptText);
-                savedTranscript.setStatus(LlmStatus.COMPLETED);
-                return transcriptRepository.save(savedTranscript);
-            }).onErrorResume(e -> {
-                savedTranscript.setStatus(LlmStatus.FAILED);
-                return transcriptRepository.save(savedTranscript);
-            });
-        });
+        return transcriptRepository.save(transcriptRaw).flatMap(savedTranscript ->
+                whisperService.transcribeVideo(savedTranscript.getVideoPath()).flatMap(transcriptText -> {
+            savedTranscript.setTranscript(transcriptText);
+            savedTranscript.setStatus(LlmStatus.COMPLETED);
+            return transcriptRepository.save(savedTranscript);
+        }).onErrorResume(e -> {
+            savedTranscript.setStatus(LlmStatus.FAILED);
+            return transcriptRepository.save(savedTranscript);
+        }));
     }
 
     private String computeFileHash(final String filePath) throws IOException, NoSuchAlgorithmException {
