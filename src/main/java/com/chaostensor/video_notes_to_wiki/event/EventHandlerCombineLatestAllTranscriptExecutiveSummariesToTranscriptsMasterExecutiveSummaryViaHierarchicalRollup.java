@@ -130,7 +130,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         return transcriptExecutiveSummaryRepository.findAll()
                 .collectList()
                 .flatMap(this::chunkAndSummarizeIteratively)
-                .flatMap(finalSummary -> saveAndPublishRollup(finalSummary))
+                .flatMap(this::saveAndPublishRollup)
 
                 .then();
     }
