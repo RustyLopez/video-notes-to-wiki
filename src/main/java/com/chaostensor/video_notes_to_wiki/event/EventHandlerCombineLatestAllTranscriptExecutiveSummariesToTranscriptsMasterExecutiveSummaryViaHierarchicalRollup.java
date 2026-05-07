@@ -27,7 +27,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Semaphore;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,8 +49,6 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     private final LlmConfig llmConfig;
     private final TokenEstimator tokenEstimator;
     private final VectorStore vectorStore;
-
-    private Semaphore concurrencySemaphore;
 
     private static final String HIERARCHICAL_SUMMARIZATION_PROMPT_TEMPLATE = """
             You are performing hierarchical summarization to create the next layer of wiki documentation (Layer {{CURRENT_LAYER}}).
@@ -95,10 +92,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
              - Output ONLY the requested sections and metadata. No extra commentary.
             """;
 
-    @PostConstruct
-    public void init() {
-        this.concurrencySemaphore = new Semaphore(llmConfig.getThreadPoolSize());
-    }
+
 
     @PostConstruct
     public void subscribe() {
@@ -113,15 +107,11 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     }
 
     private Mono<Void> processEvent(final TranscriptExecutiveSummary event) {
-        return Mono.fromCallable(() -> {
-                    concurrencySemaphore.acquire();
-                    return event;
-                })
+        return Mono.just(event)
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(this::performHierarchicalRollup)
                 .doOnError(error -> log.error("Error processing rollup for id: {}", event.getId(), error))
-                .onErrorResume(e -> Mono.empty())
-                .doFinally(signalType -> concurrencySemaphore.release());
+                .onErrorResume(e -> Mono.empty());
     }
 
     private Mono<Void> performHierarchicalRollup(final TranscriptExecutiveSummary triggerEvent) {
