@@ -1,6 +1,5 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
-import com.chaostensor.video_notes_to_wiki.config.ChunkingConfig;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
@@ -19,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
-import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -182,6 +180,6 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
     }
 
     int determineIdealMaxChunkSizeForSingleTranscriptChunks() {
-        return llmConfig.getMaxChunkTokens();
+        return llmConfig.getMaxTokensForTranscriptChunksForSufficientMultiChunkInclusionGranularity();
     }
 }

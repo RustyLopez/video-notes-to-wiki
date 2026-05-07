@@ -17,7 +17,28 @@ public class LlmConfig {
     @Value("${spring.ai.ollama.base-url}")
     private String ollamaBaseUrl;
 
-    private int maxChunkTokens = 4096;
+    /**
+     * This is a fallback for how large to make individual chunks of a transcript.
+     *
+     * Semantic chunking is used first, but if the chunks are still to big, they need to be capped to this length.
+     *
+     * Keep in mind that the purpose of chunking is to be able tos elect a subset of chunks to fit into a tight context window.
+     *
+     * Which means that this has to be a fraction of the total tokens available in the context window for input, and keep in mind
+     * that context window has to support the output tokens and the prompt tokens as well, and the outputs from these prompts
+     * will be fairly large. Ideally saturating large portions of the available window.
+     *
+     * Importantly we want to be able to select teh very best chunks to go into the context. The most relevant. And if
+     * chunk size is too big, then we'll be forced to bring in a lot of extra bloat.
+     *
+     * SO, we want it small enough that we have some degree of granularity on what we select. But not so small that we are splitting semantically associated information unnecessarily.
+     *
+     * I think a reasonable max size then is 1% of the context window length. This will split within semantically contiguous bounds
+     * for smaller models, but will automatically scale up to exceed most semantically contiguous regions fo text as your model capacity grows.
+     *
+     * So I think that works.
+     */
+    private int maxTokensForTranscriptChunksForSufficientMultiChunkInclusionGranularity = 4096;
     private int threadPoolSize = 5;
 
     public int getContextWindowTokens() {
