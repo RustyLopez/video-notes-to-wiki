@@ -2,6 +2,7 @@ package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.entity.Wiki;
+import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
 import com.chaostensor.video_notes_to_wiki.repository.WikiRepository;
@@ -47,6 +48,7 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
     private final WikiRepository wikiRepository;
     private final EventStream<Wiki> wikiResultEventStream;
     private final VectorStore vectorStore;
+    private final LlmConfig llmConfig;
     @Value("${app.wiki-output}")
     private String outputDirectory;
 
@@ -77,12 +79,14 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                                                            final WebClient.Builder webClientBuilder,
                                                            final WikiRepository wikiRepository,
                                                            final EventStream<Wiki> wikiResultEventStream,
-                                                           final VectorStore vectorStore) {
+                                                           final VectorStore vectorStore,
+                                                           final LlmConfig llmConfig) {
         this.compressedTranscriptsEventStream = compressedTranscriptsEventStream;
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
+        this.webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
         this.wikiRepository = wikiRepository;
         this.wikiResultEventStream = wikiResultEventStream;
         this.vectorStore = vectorStore;
+        this.llmConfig = llmConfig;
     }
 
     @PostConstruct

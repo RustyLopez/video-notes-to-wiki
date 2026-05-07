@@ -229,7 +229,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
     }
 
     private Mono<String> callLLM(final String prompt) {
-        final WebClient webClient = webClientBuilder.baseUrl("http://localhost:8082/llm").build();
+        final WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)
