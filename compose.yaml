@@ -48,6 +48,7 @@ services:
       OLLAMA_URL: http://ollama:11434
       MEDIA_INPUT: /media-input
       WIKI_OUTPUT: /wiki-output
+      WHISPER_SERVICE_URL: http://whisper-wrapper:8080/whispers
     volumes:
       - ./media-input:/media-input
       - ./wiki-output:/wiki-output

@@ -5,6 +5,7 @@ import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.WhisperRespo
 import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.CompletedStatus;
 import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.FailedStatus;
 import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.PendingStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -22,11 +23,11 @@ public class WhisperService {
 
     private final WebClient webClient;
 
-    public WhisperService(final WebClient.Builder builder) {
+    public WhisperService(final WebClient.Builder builder, @Value("${app.whisper-service-url}") final String whisperServiceUrl) {
         // TODO allow the runner to be configurable as either insanley-fast-whisper, or whisper-x or speaches
         //   with that latter being currently in its own container but the former two currently sharing a container
         //   but at different endpoints.
-        this.webClient = builder.baseUrl("http://localhost:8081/whispers").build();
+        this.webClient = builder.baseUrl(whisperServiceUrl).build();
     }
 
     public Mono<String> transcribeVideo(final String filePath) {

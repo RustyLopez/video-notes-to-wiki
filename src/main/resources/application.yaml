@@ -49,6 +49,7 @@ spring:
 app:
   media-input: ${MEDIA_INPUT:./media-input}
   wiki-output: ${WIKI_OUTPUT:./wiki-output}
+  whisper-service-url: ${WHISPER_SERVICE_URL:http://localhost:8081/whispers}
   llm:
     chat:
       models:
