@@ -23,8 +23,8 @@ public class CustomConverters {
 
 
     @Bean
-    public R2dbcCustomConversions customConversions(JsonMapper jsonMapper) {
-        List<Converter<?, ?>> converters = new ArrayList<>();
+    public R2dbcCustomConversions customConversions(final JsonMapper jsonMapper) {
+        final List<Converter<?, ?>> converters = new ArrayList<>();
         return R2dbcCustomConversions.of(PostgresDialect.INSTANCE, converters);
     }
 

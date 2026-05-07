@@ -50,19 +50,19 @@ public class WhisperService {
             .retrieve()
             .bodyToMono(WhisperResponse.class)
             .flatMap(response -> {
-                String jobId = response.getJobId();
+                final String jobId = response.getJobId();
                 return pollForResult(jobId);
             })
             .onErrorResume(e -> Mono.just("Error transcribing " + fileName + ": " + e.getMessage()));
     }
 
-    private Mono<String> pollForResult(String jobId) {
+    private Mono<String> pollForResult(final String jobId) {
         return webClient.get()
             .uri("/{jobId}", jobId)
             .retrieve()
             .bodyToMono(WhisperResponse.class)
             .flatMap(response -> {
-                if (response.getStatus() instanceof CompletedStatus completed) {
+                if (response.getStatus() instanceof final CompletedStatus completed) {
                     return Mono.just(completed.transcriptData());
                 }
                 if (response.getStatus() instanceof FailedStatus) {

@@ -9,15 +9,15 @@ class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMaste
 
     @Test
     void chunkByBulletPointsSectionHeadersAndDoubleNewlines_shouldSplitCorrectly() {
-        String input = "# Heading1\n\nContent here.\n* bullet\n\nMore content";
-        ImmutableList<String> chunks = EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup.chunkByBulletPointsSectionHeadersAndDoubleNewlines(input);
+        final String input = "# Heading1\n\nContent here.\n* bullet\n\nMore content";
+        final ImmutableList<String> chunks = EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup.chunkByBulletPointsSectionHeadersAndDoubleNewlines(input);
         assertFalse(chunks.isEmpty());
         assertTrue(chunks.size() >= 1);
     }
 
     @Test
     void chunkByBulletPointsSectionHeadersAndDoubleNewlines_emptyInput() {
-        ImmutableList<String> chunks = EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup.chunkByBulletPointsSectionHeadersAndDoubleNewlines("");
+        final ImmutableList<String> chunks = EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscriptsMasterExecutiveSummaryViaHierarchicalRollup.chunkByBulletPointsSectionHeadersAndDoubleNewlines("");
         assertTrue(chunks.isEmpty());
     }
 }

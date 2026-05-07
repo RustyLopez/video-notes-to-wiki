@@ -37,7 +37,7 @@ class TranscriptRawControllerTest {
     static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
 
     @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
+    static void registerProperties(final DynamicPropertyRegistry registry) {
         registry.add("spring.r2dbc.url", () -> postgres.getJdbcUrl().replace("jdbc:", "r2dbc:"));
         registry.add("spring.r2dbc.username", postgres::getUsername);
         registry.add("spring.r2dbc.password", postgres::getPassword);
@@ -58,8 +58,8 @@ class TranscriptRawControllerTest {
 
     @Test
     void get_shouldReturnOkWhenCompleted() {
-        UUID id = UUID.randomUUID();
-        TranscriptRaw transcript = new TranscriptRaw();
+        final UUID id = UUID.randomUUID();
+        final TranscriptRaw transcript = new TranscriptRaw();
         transcript.setId(id);
         transcript.setStatus(LlmStatus.COMPLETED);
         transcript.setVideoPath("/path/to/video.mp4");
@@ -78,8 +78,8 @@ class TranscriptRawControllerTest {
 
     @Test
     void get_shouldReturnAcceptedWhenProcessing() {
-        UUID id = UUID.randomUUID();
-        TranscriptRaw transcript = new TranscriptRaw();
+        final UUID id = UUID.randomUUID();
+        final TranscriptRaw transcript = new TranscriptRaw();
         transcript.setId(id);
         transcript.setStatus(LlmStatus.PROCESSING);
         transcript.setVideoPath("/path/to/video.mp4");
@@ -98,7 +98,7 @@ class TranscriptRawControllerTest {
 
     @Test
     void get_shouldReturnNotFoundWhenMissing() {
-        UUID id = UUID.randomUUID();
+        final UUID id = UUID.randomUUID();
         when(transcriptRepository.findById(id)).thenReturn(Mono.empty());
 
         WebTestClient.bindToController(new TranscriptRawController(transcriptRepository, transcriptService))

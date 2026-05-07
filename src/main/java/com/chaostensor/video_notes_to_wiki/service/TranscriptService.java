@@ -1,9 +1,9 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
-import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
+import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.event.EventStream;
+import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -15,7 +15,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.UUID;
 
 @Service
 public class TranscriptService {
@@ -75,13 +74,13 @@ public class TranscriptService {
         // probably not necessary but I'm going to leave it for now.
         return transcriptRepository.save(transcriptRaw).flatMap(savedTranscript ->
                 whisperService.transcribeVideo(savedTranscript.getVideoPath()).flatMap(transcriptText -> {
-            savedTranscript.setTranscript(transcriptText);
-            savedTranscript.setStatus(LlmStatus.COMPLETED);
-            return transcriptRepository.save(savedTranscript);
-        }).onErrorResume(e -> {
-            savedTranscript.setStatus(LlmStatus.FAILED);
-            return transcriptRepository.save(savedTranscript);
-        }));
+                    savedTranscript.setTranscript(transcriptText);
+                    savedTranscript.setStatus(LlmStatus.COMPLETED);
+                    return transcriptRepository.save(savedTranscript);
+                }).onErrorResume(e -> {
+                    savedTranscript.setStatus(LlmStatus.FAILED);
+                    return transcriptRepository.save(savedTranscript);
+                }));
     }
 
     private String computeFileHash(final String filePath) throws IOException, NoSuchAlgorithmException {

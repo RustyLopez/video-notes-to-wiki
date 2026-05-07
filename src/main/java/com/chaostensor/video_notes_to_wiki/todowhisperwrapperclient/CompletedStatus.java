@@ -8,11 +8,9 @@ import lombok.experimental.Accessors;
 import lombok.extern.jackson.Jacksonized;
 
 @Jacksonized
-@Value
 @AllArgsConstructor
 @Accessors(fluent = true)
 @Builder
-public class CompletedStatus implements WhisperStatus {
+public record CompletedStatus(String transcriptData) implements WhisperStatus {
 
-    String transcriptData;
 }

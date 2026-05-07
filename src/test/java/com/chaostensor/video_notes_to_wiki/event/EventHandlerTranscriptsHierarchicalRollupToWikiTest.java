@@ -27,7 +27,7 @@ class EventHandlerTranscriptsHierarchicalRollupToWikiTest {
     static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
 
     @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
+    static void registerProperties(final DynamicPropertyRegistry registry) {
         registry.add("spring.r2dbc.url", () -> postgres.getJdbcUrl().replace("jdbc:", "r2dbc:"));
         registry.add("spring.r2dbc.username", postgres::getUsername);
         registry.add("spring.r2dbc.password", postgres::getPassword);

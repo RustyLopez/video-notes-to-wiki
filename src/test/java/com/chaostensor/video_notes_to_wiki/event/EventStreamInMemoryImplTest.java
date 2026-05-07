@@ -11,9 +11,9 @@ class EventStreamInMemoryImplTest {
 
     @Test
     void testPublishAndGetEventStream() {
-        EventStream<String> eventStream = new EventStreamInMemoryImpl<>();
+        final EventStream<String> eventStream = new EventStreamInMemoryImpl<>();
 
-        Flux<String> flux = eventStream.getEventStream();
+        final Flux<String> flux = eventStream.getEventStream();
 
         StepVerifier.create(flux.take(2))
                 .then(() -> eventStream.publish("event1").subscribe())
@@ -26,10 +26,10 @@ class EventStreamInMemoryImplTest {
 
     @Test
     void testPublishFailure() {
-        EventStream<String> eventStream = new EventStreamInMemoryImpl<>();
+        final EventStream<String> eventStream = new EventStreamInMemoryImpl<>();
 
         // Publishing should succeed normally
-        Mono<Void> result = eventStream.publish("event");
+        final Mono<Void> result = eventStream.publish("event");
 
         StepVerifier.create(result)
                 .verifyComplete();

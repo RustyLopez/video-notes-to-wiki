@@ -34,7 +34,7 @@ class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
     static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
 
     @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
+    static void registerProperties(final DynamicPropertyRegistry registry) {
         registry.add("spring.r2dbc.url", () -> postgres.getJdbcUrl().replace("jdbc:", "r2dbc:"));
         registry.add("spring.r2dbc.username", postgres::getUsername);
         registry.add("spring.r2dbc.password", postgres::getPassword);
@@ -58,11 +58,11 @@ class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
 
     @Test
     void testProcessTranscriptEventSuccess() {
-        TranscriptRaw transcriptRaw = new TranscriptRaw();
+        final TranscriptRaw transcriptRaw = new TranscriptRaw();
         transcriptRaw.setId(UUID.randomUUID());
         transcriptRaw.setTranscript("Test transcript");
 
-        Mono<Void> result = handler.processTranscriptEvent(transcriptRaw);
+        final Mono<Void> result = handler.processTranscriptEvent(transcriptRaw);
 
         StepVerifier.create(result)
                 .verifyError();
@@ -70,11 +70,11 @@ class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
 
     @Test
     void testProcessTranscriptWithEmbeddingsSuccess() {
-        UUID id = UUID.randomUUID();
-        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        final UUID id = UUID.randomUUID();
+        final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(id);
 
-        Mono<TranscriptWithEmbeddings> result = handler.processTranscriptWithEmbeddings(id);
+        final Mono<TranscriptWithEmbeddings> result = handler.processTranscriptWithEmbeddings(id);
 
         StepVerifier.create(result)
                 .verifyComplete();
@@ -82,11 +82,11 @@ class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
 
     @Test
     void testProcessTranscriptNullContent() {
-        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
         transcriptWithEmbeddings.setTranscriptRawId(UUID.randomUUID());
 
-        Mono<TranscriptWithEmbeddings> result = handler.processTranscript(transcriptWithEmbeddings);
+        final Mono<TranscriptWithEmbeddings> result = handler.processTranscript(transcriptWithEmbeddings);
 
         StepVerifier.create(result)
                 .verifyError();
@@ -94,11 +94,11 @@ class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
 
     @Test
     void testProcessTranscriptException() {
-        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
         transcriptWithEmbeddings.setTranscriptRawId(UUID.randomUUID());
 
-        Mono<TranscriptWithEmbeddings> result = handler.processTranscript(transcriptWithEmbeddings);
+        final Mono<TranscriptWithEmbeddings> result = handler.processTranscript(transcriptWithEmbeddings);
 
         StepVerifier.create(result)
                 .verifyError();
@@ -106,7 +106,7 @@ class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
 
     @Test
     void testDetermineIdealMaxChunkSizeForSingleTranscriptChunks() {
-        int result = handler.determineIdealMaxChunkSizeForSingleTranscriptChunks();
+        final int result = handler.determineIdealMaxChunkSizeForSingleTranscriptChunks();
 
         assert result > 0;
     }

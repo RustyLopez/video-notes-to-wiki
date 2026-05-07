@@ -35,7 +35,7 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
     static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
 
     @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
+    static void registerProperties(final DynamicPropertyRegistry registry) {
         registry.add("spring.r2dbc.url", () -> postgres.getJdbcUrl().replace("jdbc:", "r2dbc:"));
         registry.add("spring.r2dbc.username", postgres::getUsername);
         registry.add("spring.r2dbc.password", postgres::getPassword);
@@ -59,10 +59,10 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
 
     @Test
     void testProcessEventSuccess() {
-        TranscriptWithEmbeddings event = new TranscriptWithEmbeddings();
+        final TranscriptWithEmbeddings event = new TranscriptWithEmbeddings();
         event.setId(UUID.randomUUID());
 
-        Mono<Void> result = handler.processEvent(event);
+        final Mono<Void> result = handler.processEvent(event);
 
         StepVerifier.create(result)
                 .verifyComplete();
@@ -70,10 +70,10 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
 
     @Test
     void testProcessTranscriptWithEmbeddingsEventNew() {
-        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
 
-        Mono<Void> result = handler.processTranscriptWithEmbeddingsEvent(transcriptWithEmbeddings);
+        final Mono<Void> result = handler.processTranscriptWithEmbeddingsEvent(transcriptWithEmbeddings);
 
         StepVerifier.create(result)
                 .verifyError();
@@ -81,10 +81,10 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
 
     @Test
     void testProcessTranscriptWithEmbeddingsEventExists() {
-        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
 
-        Mono<Void> result = handler.processTranscriptWithEmbeddingsEvent(transcriptWithEmbeddings);
+        final Mono<Void> result = handler.processTranscriptWithEmbeddingsEvent(transcriptWithEmbeddings);
 
         StepVerifier.create(result)
                 .verifyError();
@@ -92,10 +92,10 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
 
     @Test
     void testCreateWikiReadyTranscript() {
-        TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
+        final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
 
-        Mono<TranscriptExecutiveSummary> result = handler.createWikiReadyTranscript(transcriptWithEmbeddings);
+        final Mono<TranscriptExecutiveSummary> result = handler.createWikiReadyTranscript(transcriptWithEmbeddings);
 
         StepVerifier.create(result)
                 .verifyError();
@@ -103,9 +103,9 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
 
     @Test
     void testCallLLMSuccess() {
-        String prompt = "test prompt";
+        final String prompt = "test prompt";
 
-        Mono<String> result = handler.callLLM(prompt);
+        final Mono<String> result = handler.callLLM(prompt);
 
         StepVerifier.create(result)
                 .verifyError();
@@ -113,9 +113,9 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
 
     @Test
     void testCallLLMError() {
-        String prompt = "test prompt";
+        final String prompt = "test prompt";
 
-        Mono<String> result = handler.callLLM(prompt);
+        final Mono<String> result = handler.callLLM(prompt);
 
         StepVerifier.create(result)
                 .verifyError();
