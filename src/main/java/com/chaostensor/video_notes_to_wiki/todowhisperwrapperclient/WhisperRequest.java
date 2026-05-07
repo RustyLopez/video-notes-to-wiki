@@ -11,24 +11,102 @@ import lombok.extern.jackson.Jacksonized;
 public class WhisperRequest {
 
     /**
-     *
-     * While this service can be run locally as a standalone.
-     *
-     *
-     * For now this service is intended to run in a docker env or kube cluster, accessed internally only,
-     * as a side car next to other services which will delegate speech to text transforms to this service.
-     *
-     * THe current intent is therefore to host a shared volume accessible to all services to handle the actual
-     * file access rather than to post the entire file to this service.
-     *
-     * Even if running locally without any other consuming services, it would be expected that your media sources
-     * be on the mounted disk at the configured base directory that this application will query for files.
-     *
-     * The base path that should be mounted in the docker image ( or on your local file system if just running
-     * this via spring boot) will be prepended to this request param to resolve the file to process.
-     *
-     * We eventually need to be able to receive a dir full of media files as well and include them all
-     * as a batch.
+     * File name relative to the media input base path.
      */
-    String pathRelativeSharedVolumeMount;
+    String fileName;
+
+    /**
+     * Task to perform: transcribe or translate to another language. Default: "transcribe"
+     */
+    String task;
+
+    /**
+     * Language of the input audio. Default: null (Whisper auto-detects the language)
+     */
+    String language;
+
+    /**
+     * Whisper supports both chunked as well as word level timestamps. Default: "chunk"
+     */
+    String timestamp;
+
+    /**
+     * Specifies the exact number of speakers present in the audio file. Must be at least 1. Cannot be used together with minSpeakers or maxSpeakers.
+     */
+    Integer numSpeakers;
+
+    /**
+     * Sets the minimum number of speakers that the system should consider during diarization. Must be at least 1. Cannot be used together with numSpeakers.
+     */
+    Integer minSpeakers;
+
+    /**
+     * Defines the maximum number of speakers that the system should consider in diarization. Must be at least 1. Cannot be used together with numSpeakers.
+     */
+    Integer maxSpeakers;
+
+    /**
+     * Name of the Whisper model to use (e.g., "small", "base", "medium", "large-v2", "large-v3"). Default: "small"
+     */
+    String model;
+
+    /**
+     * Apply diarization to assign speaker labels to each segment/word. Default: false
+     */
+    Boolean diarize;
+
+    /**
+     * Name of phoneme-level ASR model to do alignment. Default: null (auto-selected based on language)
+     */
+    String alignModel;
+
+    /**
+     * VAD method to be used: "pyannote" or "silero". Default: "pyannote"
+     */
+    String vadMethod;
+
+    /**
+     * Compute type for computation: "default", "float16", "float32", "int8". Default: "default"
+     */
+    String computeType;
+
+    /**
+     * Onset threshold for VAD (see pyannote.audio), reduce this if speech is not being detected. Default: 0.500
+     */
+    Float vadOnset;
+
+    /**
+     * Offset threshold for VAD (see pyannote.audio), reduce this if speech is not being detected. Default: 0.363
+     */
+    Float vadOffset;
+
+    /**
+     * Chunk size for merging VAD segments. Default: 30, reduce this if the chunk is too long.
+     */
+    Integer chunkSize;
+
+    /**
+     * Name of the speaker diarization model to use. Default: "pyannote/speaker-diarization-community-1"
+     */
+    String diarizeModel;
+
+    /**
+     * Temperature to use for sampling. Default: 0
+     */
+    Float temperature;
+
+    /**
+     * Number of beams in beam search, only applicable when temperature is zero. Default: 5
+     */
+    Integer beamSize;
+
+    /**
+     * Whether to underline each word as it is spoken in srt and vtt output. Default: false
+     */
+    Boolean highlightWords;
+
+    /**
+     * Hotwords/hint phrases to the model (e.g. "WhisperX, PyAnnote, GPU"); improves recognition of rare/technical terms
+     */
+    String hotwords;
 }
