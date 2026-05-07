@@ -38,11 +38,15 @@ public class LlmConfig {
      *
      * So I think that works.
      */
-    private int maxTokensForTranscriptChunksForSufficientMultiChunkInclusionGranularity = 4096;
+    private int maxTokensForTranscriptChunksForSufficientMultiChunkInclusionGranularity;
     private int threadPoolSize = 5;
 
     public int getContextWindowTokens() {
         return ollamaModelInfoService.getContextWindowTokens();
+    }
+
+    public int getMaxTokensForTranscriptChunksForSufficientMultiChunkInclusionGranularity() {
+        return (int) (getContextWindowTokens() * 0.01);
     }
 
     public String getUrl() {
