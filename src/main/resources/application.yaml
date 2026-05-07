@@ -59,7 +59,6 @@ app:
       models:
         # spring ai may setup multiple so we need to clarify our preferred.
         preferred: jinaai/jina-embeddings-v4
-    contextWindowTokens: 4096 # TODO need to be absed on cofngured lllm for chat. This si way off for our model.
     maxChunkTokens: 4096 # this is way off
     reductionRatio: 0.3
     threadPoolSize: 5

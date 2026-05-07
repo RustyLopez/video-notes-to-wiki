@@ -1,16 +1,33 @@
 package com.chaostensor.video_notes_to_wiki.config;
 
+import com.chaostensor.video_notes_to_wiki.service.OllamaModelInfoService;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
 @ConfigurationProperties(prefix = "app.llm") // I don't love configuration properties. It's hard to read. I much prefer @value annotations. Rework this
 @Data
+@RequiredArgsConstructor
 public class LlmConfig {
-    private String url = "http://localhost:8080/v1";
-    private int contextWindowTokens = 4096; // Default for GPT-3.5 TODO pull from model config. We'll have a list of models with their corresponding limits.
+    private final OllamaModelInfoService ollamaModelInfoService;
+
+    @Value("${spring.ai.ollama.base-url}")
+    private String ollamaBaseUrl;
+
     private int maxChunkTokens = 4096;
+    private int threadPoolSize = 5;
+
+    public int getContextWindowTokens() {
+        return ollamaModelInfoService.getContextWindowTokens();
+    }
+
+    public String getUrl() {
+        return ollamaBaseUrl;
+    }
+
     /**
      * leave room for the "most relevant embeddings" sourced rag result that will also be included in the wiki generation step. This needs to fit along side that,
      * as well as the prompt, and the output buffer. We'll have to... do some more analysis on a proper value to use here, and probably lock down
@@ -30,6 +47,7 @@ public class LlmConfig {
      * would be known and discoverable by declarations, except the output size.But the output will always just be
      * trimmed by the llm to the max context window length so we just allow it to do that.
      */
+
     private float ragProducedMasterExecutiveSummaryMaxContextOccupationRatio = 0.3f;
     private float hierarchicalSummaryStrategyConfigsPerLayerReductionRatio = 0.3f;
     private int promptOverheadTokens = 500; // Estimate for prompt + result buffer ( todo as a percent of total context window )
