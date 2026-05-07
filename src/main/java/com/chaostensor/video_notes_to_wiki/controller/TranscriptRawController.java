@@ -17,12 +17,11 @@ import java.util.UUID;
 public class TranscriptRawController {
 
     private final TranscriptRepository transcriptRepository;
-    private final TranscriptService transcriptService;
 
     public TranscriptRawController(final TranscriptRepository transcriptRepository,
                                    final TranscriptService transcriptService) {
         this.transcriptRepository = transcriptRepository;
-        this.transcriptService = transcriptService;
+
     }
 
     @GetMapping("/{id}")
