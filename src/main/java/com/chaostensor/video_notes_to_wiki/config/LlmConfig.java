@@ -32,7 +32,5 @@ public class LlmConfig {
      */
     private float ragProducedMasterExecutiveSummaryMaxContextOccupationRatio = 0.3f;
     private float hierarchicalSummaryStrategyConfigsPerLayerReductionRatio = 0.3f;
-    private int threadPoolSize = 5;
-    private long maxMemoryUsageMb = 1024; // TODO this wa supposed to be.. discovered not hard coded.
-    private int promptOverheadTokens = 500; // Estimate for prompt + result buffer
+    private int promptOverheadTokens = 500; // Estimate for prompt + result buffer ( todo as a percent of total context window )
 }

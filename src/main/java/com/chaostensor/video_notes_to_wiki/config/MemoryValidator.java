@@ -23,10 +23,7 @@ public class MemoryValidator implements CommandLineRunner {
         final long maxMemory = Runtime.getRuntime().maxMemory();
         final long maxMemoryMb = maxMemory / (1024 * 1024);
 
-        final long requiredMemoryMb = Math.max(
-            llmConfig.getContextWindowTokens() * 2L, // Rough estimate: 2 bytes per token for storage
-            llmConfig.getMaxMemoryUsageMb()
-        );
+        final long requiredMemoryMb = llmConfig.getContextWindowTokens() * 2L; // Rough estimate: 2 bytes per token for storage
 
         if (maxMemoryMb < requiredMemoryMb) {
             log.error("Insufficient heap memory. Available: {} MB, Required: {} MB", maxMemoryMb, requiredMemoryMb);
