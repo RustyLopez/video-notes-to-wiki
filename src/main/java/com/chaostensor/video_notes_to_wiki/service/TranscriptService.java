@@ -71,6 +71,8 @@ public class TranscriptService {
 
     private Mono<TranscriptRaw> processTranscript(final TranscriptRaw transcriptRaw) {
         transcriptRaw.setStatus(LlmStatus.PROCESSING);
+        // note seems like a redundant save but we are changing status to processing.
+        // probably not necessary but I'm going to leave it for now.
         return transcriptRepository.save(transcriptRaw).flatMap(savedTranscript -> {
             return whisperService.transcribeVideo(savedTranscript.getVideoPath()).flatMap(transcriptText -> {
                 savedTranscript.setTranscript(transcriptText);
