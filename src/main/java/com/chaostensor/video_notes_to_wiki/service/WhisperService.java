@@ -63,8 +63,8 @@ public class WhisperService {
             .retrieve()
             .bodyToMono(WhisperResponse.class)
             .flatMap(response -> {
-                if (response.getStatus() instanceof final CompletedStatus completed) {
-                    return Mono.just(completed.transcriptData());
+                if (response.getStatus() instanceof CompletedStatus(String transcriptData)) {
+                    return Mono.just(transcriptData);
                 }
                 if (response.getStatus() instanceof FailedStatus) {
                     return Mono.error(new RuntimeException("Transcription failed for job " + jobId));

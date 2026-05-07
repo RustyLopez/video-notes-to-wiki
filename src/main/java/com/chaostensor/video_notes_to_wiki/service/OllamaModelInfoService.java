@@ -1,12 +1,12 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import jakarta.annotation.PostConstruct;
 import java.util.Map;
 
 @Service
@@ -27,10 +27,10 @@ public class OllamaModelInfoService {
     @PostConstruct
     public void init() {
         try {
-            WebClient webClient = webClientBuilder.baseUrl(ollamaBaseUrl).build();
+            final WebClient webClient = webClientBuilder.baseUrl(ollamaBaseUrl).build();
 
             // Query Ollama /api/show for model info
-            Map response = webClient.post()
+            final Map response = webClient.post()
                     .uri("/api/show")
                     .bodyValue(Map.of("name", preferredChatModel))
                     .retrieve()
@@ -41,17 +41,16 @@ public class OllamaModelInfoService {
                 // The response might have modelfile, but context_length might be in model_info or elsewhere
                 // For Ollama, context_length is typically in the model info
                 // Let's try to extract it
-                Object modelfile = response.get("modelfile");
-                if (modelfile instanceof String) {
-                    String modelfileStr = (String) modelfile;
+                final Object modelfile = response.get("modelfile");
+                if (modelfile instanceof final String modelfileStr) {
                     // Look for PARAMETER context_length in the modelfile
-                    String contextLengthStr = extractParameter(modelfileStr, "context_length");
+                    final String contextLengthStr = extractParameter(modelfileStr, "context_length");
                     if (contextLengthStr != null) {
                         try {
                             this.contextWindowTokens = Integer.parseInt(contextLengthStr);
                             log.info("Retrieved context window tokens for model {}: {}", preferredChatModel, this.contextWindowTokens);
                             return;
-                        } catch (NumberFormatException e) {
+                        } catch (final NumberFormatException e) {
                             log.warn("Failed to parse context_length: {}", contextLengthStr);
                         }
                     }
@@ -59,11 +58,11 @@ public class OllamaModelInfoService {
 
                 // If not found in modelfile, check if there's a model_info map
                 if (response.containsKey("model_info")) {
-                    Object modelInfo = response.get("model_info");
+                    final Object modelInfo = response.get("model_info");
                     if (modelInfo instanceof Map) {
-                        Map<String, Object> modelInfoMap = (Map<String, Object>) modelInfo;
+                        final Map<String, Object> modelInfoMap = (Map<String, Object>) modelInfo;
                         if (modelInfoMap.containsKey("llama.context_length")) {
-                            Object contextLength = modelInfoMap.get("llama.context_length");
+                            final Object contextLength = modelInfoMap.get("llama.context_length");
                             if (contextLength instanceof Number) {
                                 this.contextWindowTokens = ((Number) contextLength).intValue();
                                 log.info("Retrieved context window tokens for model {}: {}", preferredChatModel, this.contextWindowTokens);
@@ -76,17 +75,17 @@ public class OllamaModelInfoService {
 
             log.warn("context_length not found in Ollama show response for {}", preferredChatModel);
             setDefaultContextTokens();
-        } catch (Exception e) {
+        } catch (final Exception e) {
             log.error("Failed to retrieve model info from Ollama for {}", preferredChatModel, e);
             setDefaultContextTokens();
         }
     }
 
-    private String extractParameter(String modelfile, String param) {
-        String pattern = "PARAMETER " + param + " ";
-        int index = modelfile.indexOf(pattern);
+    private String extractParameter(final String modelfile, final String param) {
+        final String pattern = "PARAMETER " + param + " ";
+        final int index = modelfile.indexOf(pattern);
         if (index != -1) {
-            int start = index + pattern.length();
+            final int start = index + pattern.length();
             int end = modelfile.indexOf('\n', start);
             if (end == -1) end = modelfile.length();
             return modelfile.substring(start, end).trim();
