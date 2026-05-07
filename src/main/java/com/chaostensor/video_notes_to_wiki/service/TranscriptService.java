@@ -10,11 +10,12 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 @Service
 public class TranscriptService {
@@ -83,15 +84,10 @@ public class TranscriptService {
                 }));
     }
 
-    private String computeFileHash(final String filePath) throws IOException, NoSuchAlgorithmException {
+    private String computeFileHash(final String filePath) throws IOException {
         final Path path = Paths.get(filePath);
-        final byte[] fileBytes = Files.readAllBytes(path);
-        final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        final byte[] hashBytes = digest.digest(fileBytes);
-        final StringBuilder sb = new StringBuilder();
-        for (final byte b : hashBytes) {
-            sb.append(String.format("%02x", b));
+        try (final InputStream inputStream = Files.newInputStream(path)) {
+            return DigestUtils.sha256Hex(inputStream);
         }
-        return sb.toString();
     }
 }
