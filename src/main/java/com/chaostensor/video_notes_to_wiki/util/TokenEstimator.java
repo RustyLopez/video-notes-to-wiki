@@ -15,14 +15,14 @@ public class TokenEstimator {
      */
     private static final int CHARS_PER_TOKEN = 4;
 
-    public int estimateTokens(String text) {
+    public int estimateTokens(final String text) {
         if (text == null || text.isEmpty()) {
             return 0;
         }
         return Math.max(1, text.length() / CHARS_PER_TOKEN);
     }
 
-    public int estimateWordCount(String text) {
+    public int estimateWordCount(final String text) {
         if (text == null || text.isEmpty()) {
             return 0;
         }

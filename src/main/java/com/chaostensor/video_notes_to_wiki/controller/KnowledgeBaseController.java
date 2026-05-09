@@ -3,21 +3,23 @@ package com.chaostensor.video_notes_to_wiki.controller;
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
+import com.google.common.collect.ImmutableList;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,51 +35,51 @@ public class KnowledgeBaseController {
     private final LlmConfig llmConfig;
 
     @PostMapping("/query")
-    public Mono<ResponseEntity<QueryResponse>> query(@RequestBody QueryRequest request) {
+    public Mono<ResponseEntity<QueryResponse>> query(@RequestBody final QueryRequest request) {
         return Mono.fromCallable(() -> {
             // Query vector DB for chunks
-            SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
-            List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
+            final SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
+            final List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
             // Extract chunks from results
-            List<String> chunks = searchResults.stream().map(Document::getText).toList();
+            final List<String> chunks = searchResults.stream().map(Document::getText).toList();
             // Resolve documents to IDs
-            ResolvedIds resolvedIds = resolveDocumentsToIds(searchResults);
+            final ResolvedIds resolvedIds = resolveDocumentsToIds(searchResults);
             // Return response
             return ResponseEntity.ok(new QueryResponse(
-                resolvedIds.getTranscriptRawIds(),
-                resolvedIds.getTranscriptExecutiveSummaryIds(),
-                resolvedIds.getTranscriptsHierarchicalRollupIds()
+                    resolvedIds.getTranscriptRawIds(),
+                    resolvedIds.getTranscriptExecutiveSummaryIds(),
+                    resolvedIds.getTranscriptsHierarchicalRollupIds()
             ));
         });
     }
 
     @PostMapping("/answer")
-    public Mono<ResponseEntity<AnswerResponse>> answer(@RequestBody QueryRequest request) {
+    public Mono<ResponseEntity<AnswerResponse>> answer(@RequestBody final QueryRequest request) {
         return Mono.fromCallable(() -> {
-            // Query vector DB for chunks
-            SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
-            List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
-            // Extract chunks from results
-            List<String> chunks = searchResults.stream().map(Document::getText).toList();
-            // Join chunks as context
-            String context = String.join("\n\n", chunks);
-            // Create prompt
-            String prompt = String.format("""
-                Answer the following question based on the provided context. If the context does not contain enough information to answer the question, say so.
-
-                Question: %s
-
-                Context:
-                %s
-                """, request.getQuery(), context);
-            // Call LLM
-            return callLLM(prompt).map(answer -> ResponseEntity.ok(new AnswerResponse(answer)));
-        })
-        .flatMap(mono -> mono);
+                    // Query vector DB for chunks
+                    final SearchRequest searchRequest = SearchRequest.builder().query(request.getQuery()).topK(10).build();
+                    final List<Document> searchResults = vectorStore.similaritySearch(searchRequest);
+                    // Extract chunks from results
+                    final List<String> chunks = searchResults.stream().map(Document::getText).toList();
+                    // Join chunks as context
+                    final String context = String.join("\n\n", chunks);
+                    // Create prompt
+                    final String prompt = String.format("""
+                            Answer the following question based on the provided context. If the context does not contain enough information to answer the question, say so.
+                            
+                            Question: %s
+                            
+                            Context:
+                            %s
+                            """, request.getQuery(), context);
+                    // Call LLM
+                    return callLLM(prompt).map(answer -> ResponseEntity.ok(new AnswerResponse(answer)));
+                })
+                .flatMap(mono -> mono);
     }
 
-    private Mono<String> callLLM(String prompt) {
-        WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
+    private Mono<String> callLLM(final String prompt) {
+        final WebClient webClient = webClientBuilder.baseUrl(llmConfig.getUrl()).build();
         return webClient.post()
                 .uri("")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -91,17 +93,17 @@ public class KnowledgeBaseController {
                 });
     }
 
-    private ResolvedIds resolveDocumentsToIds(List<Document> documents) {
+    private ResolvedIds resolveDocumentsToIds(final List<Document> documents) {
         final ImmutableList.Builder<UUID> transcriptRawIdsBuilder = ImmutableList.builder();
         final ImmutableList.Builder<UUID> transcriptExecutiveSummaryIdsBuilder = ImmutableList.builder();
         final ImmutableList.Builder<UUID> transcriptsHierarchicalRollupIdsBuilder = ImmutableList.builder();
 
-        for (Document doc : documents) {
-            Map<String, Object> metadata = doc.getMetadata();
-            String type = (String) metadata.get("type");
-            String transcriptIdStr = (String) metadata.get("transcriptId");
+        for (final Document doc : documents) {
+            final Map<String, Object> metadata = doc.getMetadata();
+            final String type = (String) metadata.get("type");
+            final String transcriptIdStr = (String) metadata.get("transcriptId");
             if (transcriptIdStr != null) {
-                UUID transcriptId = UUID.fromString(transcriptIdStr);
+                final UUID transcriptId = UUID.fromString(transcriptIdStr);
                 switch (type) {
                     case "chunk" -> transcriptRawIdsBuilder.add(transcriptId);
                     case "summary" -> transcriptExecutiveSummaryIdsBuilder.add(transcriptId);
@@ -112,12 +114,11 @@ public class KnowledgeBaseController {
         return new ResolvedIds(transcriptRawIdsBuilder.build(), transcriptExecutiveSummaryIdsBuilder.build(), transcriptsHierarchicalRollupIdsBuilder.build());
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    @Value
+    @Builder
     public static class ResolvedIds {
-        private List<UUID> transcriptRawIds;
-        private List<UUID> transcriptExecutiveSummaryIds;
-        private List<UUID> transcriptsHierarchicalRollupIds;
+        private final ImmutableList<UUID> transcriptRawIds;
+        private final ImmutableList<UUID> transcriptExecutiveSummaryIds;
+        private final ImmutableList<UUID> transcriptsHierarchicalRollupIds;
     }
 }

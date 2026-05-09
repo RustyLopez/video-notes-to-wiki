@@ -1,12 +1,12 @@
 package com.chaostensor.video_notes_to_wiki.controller;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Builder;
+import lombok.Value;
+import lombok.extern.jackson.Jacksonized;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+@Jacksonized
+@Value
+@Builder
 public class QueryRequest {
     private String query;
 }
