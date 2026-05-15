@@ -39,13 +39,13 @@ public class OllamaTestContainersDefaultConfig  {
         result.start(); // Do not explicitly call stop.
 
         final org.testcontainers.containers.Container.ExecResult execResult = result.execInContainer(
-                "ollama", "pull", OllamaModel.LLAMA3_2.getName());
+                "ollama", "pull", "tinyllama:1.1b");
         if (execResult.getExitCode() != 0) {
             throw new IOException("Failed to pull model: " + execResult.getStderr());
         }
         System.getProperties().put("spring.ai.ollama.base-url", result.getEndpoint());
         // TODO Idk clean this up, this maps to, the prop below System.getProperties().put("spring.ai.ollama.chat.model", OllamaModel.LLAMA3_2.getName());
-        System.getProperties().put("app.llm.chat.models.preferred", OllamaModel.LLAMA3_2.getName());
+        System.getProperties().put("app.llm.chat.models.preferred", "tinyllama:1.1b");
         System.getProperties().put("spring.ai.ollama.init.pull-model-strategy", "never"/* should already be */);
 
 
