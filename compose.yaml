@@ -28,9 +28,9 @@ services:
     depends_on:
       # Ugh k if any one of these has a condition they all do
       ollama:
-        condition: service_started
+        condition: service_healthy
       whisper-wrapper:
-        condition: service_started
+        condition: service_healthy
       postgres-w-vector:
         condition: service_healthy
 
@@ -55,6 +55,12 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     ports:
       - "11434:11434"
     volumes:
@@ -68,6 +74,12 @@ services:
   # NOTE You need to run a separate mvn build first currently
   whisper-wrapper:
     build: ./whisper-wrapper
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     ports:
       - "8070:8080"
     depends_on:
