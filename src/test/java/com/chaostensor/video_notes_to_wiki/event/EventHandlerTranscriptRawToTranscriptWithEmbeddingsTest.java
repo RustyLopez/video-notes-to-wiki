@@ -1,9 +1,12 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
+import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbedding;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.ollama.api.OllamaModel;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,9 +78,7 @@ class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
     @Test
     void testProcessTranscriptWithEmbeddingsSuccess() {
         final UUID id = UUID.randomUUID();
-        final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
-        transcriptWithEmbeddings.setId(id);
-
+        ChunkEmbeddingList.of(List.of(new ChunkEmbedding()));
         final Mono<TranscriptWithEmbeddings> result = handler.processTranscriptWithEmbeddings(id);
 
         StepVerifier.create(result)
