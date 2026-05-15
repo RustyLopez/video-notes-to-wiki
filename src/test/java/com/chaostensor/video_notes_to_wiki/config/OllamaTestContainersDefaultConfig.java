@@ -11,6 +11,8 @@ import org.testcontainers.utility.DockerImageName;
 import java.io.IOException;
 import java.util.Objects;
 
+import static org.testcontainers.containers.BindMode.READ_WRITE;
+
 @TestConfiguration(proxyBeanMethods = false)
 @Profile("test")
 public class OllamaTestContainersDefaultConfig {
@@ -22,9 +24,14 @@ public class OllamaTestContainersDefaultConfig {
     @ServiceConnection
     OllamaContainer ollamaContainer() throws IOException, InterruptedException {
         final OllamaContainer result =  new OllamaContainer(DockerImageName.parse("ollama/ollama:latest"))
-                .withExposedPorts(8080)// TODO se eif we can make this random using springs test support for random ports so it's non conflicting. Have to re-map the internal port to the random external.
+                .withExposedPorts(11434)// TODO se eif we can make this random using springs test support for random ports so it's non conflicting. Have to re-map the internal port to the random external.
                 // https://java.testcontainers.org/features/reuse/
                 .withReuse(true)// Critical, so that we don't pull the model every time.
+                         // EDIT doesn't actually work unless you set a  property in the host env's home directory which is super obnoxious and invasive and completely out of keeping with common testing patterns of encapsulation
+                         // um so for now we'll keep this here, spring will ignore it...
+                         // but we'll bind the ollama cache to a persistent dir.
+                         // make sure we are set to pull never int he tests as we have already pulled.
+                .withFileSystemBind("./ollama-models", "/root/.ollama", READ_WRITE)
                 .withCreateContainerCmdModifier(
                         cmd -> Objects.requireNonNull(cmd.getHostConfig()).withDeviceRequests(null)
                 );

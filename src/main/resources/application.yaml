@@ -22,7 +22,7 @@ spring:
     drop-first: true
   ai:
     ollama:
-      base-url: ${OLLAMA_URL:http://localhost:8080/v1}
+      base-url: ${OLLAMA_URL:http://localhost:11434/v1}
       init:
         chat:
           additional-model: ${app.llm.chat.models.preferred}
