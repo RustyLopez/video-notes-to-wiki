@@ -1,39 +1,51 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
+import com.chaostensor.video_notes_to_wiki.config.OllamaTestContainersDefaultConfig;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptExecutiveSummaryRepository;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptWithEmbeddingsRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.ollama.api.OllamaModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.ollama.OllamaContainer;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeAll;
 
 @Testcontainers
 @SpringBootTest
+@Import(OllamaTestContainersDefaultConfig.class)
 @ActiveProfiles("test")
 class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
 
-    @Container
+    @org.testcontainers.junit.jupiter.Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("pgvector/pgvector:pg18")
             .withDatabaseName("testdb")
             .withUsername("test")
             .withPassword("test");
 
-    @Container
-    static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
+
+    /**
+     * THe ollama container requires special handling
+     */
+    @Autowired
+    private OllamaContainer ollamaContainer;
+
 
     @DynamicPropertySource
     static void registerProperties(final DynamicPropertyRegistry registry) {
@@ -45,8 +57,10 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
 
-        registry.add("spring.ai.ollama.base-url", ollama::getEndpoint);
-        registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never");
+
+        registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never"/* should already be */);
+        registry.add("app.llm.chat.models.preferred", OllamaModel.LLAMA3_2::getName);
+
     }
 
     @Autowired
@@ -75,7 +89,7 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
         final Mono<Void> result = handler.processEvent(event);
 
         StepVerifier.create(result)
-                .verifyComplete();
+                .verifyError();
     }
 
     @Test

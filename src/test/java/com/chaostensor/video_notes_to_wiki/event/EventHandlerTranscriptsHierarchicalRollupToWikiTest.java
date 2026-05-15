@@ -1,6 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.ollama.api.OllamaModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
@@ -23,8 +24,11 @@ class EventHandlerTranscriptsHierarchicalRollupToWikiTest {
             .withUsername("test")
             .withPassword("test");
 
-    @Container
-    static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
+    /**
+     * THe ollama container requires special handling
+     */
+    @Autowired
+    private OllamaContainer ollamaContainer;
 
     @DynamicPropertySource
     static void registerProperties(final DynamicPropertyRegistry registry) {
@@ -36,8 +40,8 @@ class EventHandlerTranscriptsHierarchicalRollupToWikiTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
 
-        registry.add("spring.ai.ollama.base-url", ollama::getEndpoint);
-        registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never");
+        registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never"/* should already be */);
+        registry.add("app.llm.chat.models.preferred", OllamaModel.LLAMA3_2::getName);
     }
 
     @Autowired
