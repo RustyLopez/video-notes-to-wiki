@@ -27,26 +27,8 @@ public class CustomConverters {
     @Bean
     public R2dbcCustomConversions customConversions(final JsonMapper jsonMapper) {
         final List<Converter<?, ?>> converters = new ArrayList<>();
-        converters.add(new Converter<ChunkEmbeddingList, String>() {
-            @Override
-            public String convert(ChunkEmbeddingList source) {
-                try {
-                    return jsonMapper.writeValueAsString(source);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-        converters.add(new Converter<String, ChunkEmbeddingList>() {
-            @Override
-            public ChunkEmbeddingList convert(String source) {
-                try {
-                    return jsonMapper.readValue(source, ChunkEmbeddingList.class);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
+        converters.add(new ChunkEmbeddingListReadingConverter(jsonMapper));
+        converters.add(new ChunkEmbeddingListWritingConverter(jsonMapper));
         return R2dbcCustomConversions.of(PostgresDialect.INSTANCE, converters);
     }
 
