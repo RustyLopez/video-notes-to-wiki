@@ -8,3 +8,5 @@ CREATE TABLE transcripts_hierarchical_rollup (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     chunks_with_embeddings JSONB
 );
+
+--rollback DROP TABLE transcripts_hierarchical_rollup CASCADE;

@@ -11,3 +11,6 @@ CREATE TABLE transcript_raw (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 CREATE UNIQUE INDEX idx_transcript_raw_video_path_hash ON transcript_raw (video_path, hash);
+
+--rollback DROP INDEX idx_transcript_raw_video_path_hash;
+--rollback DROP TABLE transcript_raw CASCADE;

@@ -10,3 +10,5 @@ CREATE TABLE transcript_with_embeddings (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+
+--rollback DROP TABLE transcript_with_embeddings CASCADE;
