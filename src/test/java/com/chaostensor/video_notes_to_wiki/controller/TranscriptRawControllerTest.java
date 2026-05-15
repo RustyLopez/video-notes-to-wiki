@@ -1,5 +1,6 @@
 package com.chaostensor.video_notes_to_wiki.controller;
 
+import com.chaostensor.video_notes_to_wiki.config.OllamaTestContainersDefaultConfig;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.ollama.api.OllamaModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 @Testcontainers
 @SpringBootTest
+@Import(OllamaTestContainersDefaultConfig.class)
 @ActiveProfiles("test")
 class TranscriptRawControllerTest {
 
