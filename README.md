@@ -247,7 +247,7 @@ EventHandlerTranscriptsHierarchicalRollupToWiki --> EventStream : subscribes/pub
 
 ### Prerequisites
 - Docker and Docker Compose
-- Java 17+ (for local development)
+- Java 21+ (for local development)
 - Maven (for local development)
 
 ### Using Docker Compose
