@@ -25,7 +25,7 @@ public class TranscriptsHierarchicalRollup {
     private String compressedResult;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private ImmutableList<TranscriptWithEmbeddings.ChunkEmbedding> chunksWithEmbeddings;
+    private ImmutableList<ChunkEmbedding> chunksWithEmbeddings;
 
 
 }

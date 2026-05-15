@@ -1,6 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbedding;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
@@ -21,7 +22,6 @@ import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -113,7 +113,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
 
     Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
         final String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream()
-                .map(TranscriptWithEmbeddings.ChunkEmbedding::getChunk)
+                .map(ChunkEmbedding::getChunk)
                 .collect(Collectors.joining(" "));
         final String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);
 

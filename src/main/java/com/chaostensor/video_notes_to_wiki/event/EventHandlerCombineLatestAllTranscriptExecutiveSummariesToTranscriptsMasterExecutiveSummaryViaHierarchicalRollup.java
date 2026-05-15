@@ -1,8 +1,8 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbedding;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
@@ -272,7 +272,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         return Mono.just(saved);
     }
 
-    private Mono<ImmutableList<TranscriptWithEmbeddings.ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
+    private Mono<ImmutableList<ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
         return Mono.fromCallable(() -> chunkByBulletPointsSectionHeadersAndDoubleNewlines(summary))
                 .flatMap(chunks -> {
                     if (chunks.isEmpty()) {
@@ -285,7 +285,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                                             .flatMapMany(Flux::fromIterable)
                             )
                             .map(tuple -> {
-                                return new TranscriptWithEmbeddings.ChunkEmbedding(tuple.getT1(), tuple.getT2());
+                                return new ChunkEmbedding(tuple.getT1(), tuple.getT2());
                             })
                             .collectList()
                             .map(ImmutableList::copyOf);

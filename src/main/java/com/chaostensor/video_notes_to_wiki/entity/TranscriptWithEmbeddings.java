@@ -17,14 +17,6 @@ import com.google.common.collect.ImmutableList;
 @AllArgsConstructor
 public class TranscriptWithEmbeddings {
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ChunkEmbedding {
-        private String chunk;
-        private float[] embedding;
-    }
-
     @Id
     private UUID id;
     private UUID transcriptRawId;

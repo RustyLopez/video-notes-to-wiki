@@ -1,6 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbedding;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
@@ -147,8 +148,8 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
 
                         // Generate embeddings for chunks (keep for db storage)
                         final List<float[]> embeddings = embeddingService.embed(chunks);
-                        final List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = IntStream.range(0, chunks.size())
-                                .mapToObj(i -> new TranscriptWithEmbeddings.ChunkEmbedding(chunks.get(i), embeddings.get(i)))
+                        final List<ChunkEmbedding> chunkEmbeddings = IntStream.range(0, chunks.size())
+                                .mapToObj(i -> new ChunkEmbedding(chunks.get(i), embeddings.get(i)))
                                 .toList();
 
                         transcriptWithEmbeddings.setChunkEmbeddings(chunkEmbeddings);
