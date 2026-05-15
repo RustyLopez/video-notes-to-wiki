@@ -112,7 +112,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
     }
 
     Mono<TranscriptExecutiveSummary> createWikiReadyTranscript(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
-        final String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().stream()
+        final String structuredAnalysis = transcriptWithEmbeddings.getChunkEmbeddings().getItems().stream()
                 .map(ChunkEmbedding::getChunk)
                 .collect(Collectors.joining(" "));
         final String prompt = PROMPT_TEMPLATE.replace("{{STRUCTURED_ANALYSIS_FROM_PROMPT_1}}", structuredAnalysis);

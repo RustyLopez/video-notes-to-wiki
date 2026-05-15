@@ -25,9 +25,7 @@ public class TranscriptWithEmbeddings {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public ImmutableList<ChunkEmbedding> getChunkEmbeddings() {
-        return chunkEmbeddings != null && chunkEmbeddings.getItems() != null ? ImmutableList.copyOf(chunkEmbeddings.getItems()) : ImmutableList.of();
-    }
+
 
 
 }
