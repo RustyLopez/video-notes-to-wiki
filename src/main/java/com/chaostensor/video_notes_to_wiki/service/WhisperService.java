@@ -79,6 +79,6 @@ public class WhisperService {
                 // k we need a much longer backoff here if we are going to actually wait 30 minutes.
                 // TODO these two configurations are kind of interdependent, maybe derive the timeout from teh backoff or vice versa.
             .retryWhen(Retry.backoff(30, java.time.Duration.ofSeconds(60))
-                .doOnRetry(signal -> logger.warn("Retrying poll for job {} after failure: {}", jobId, signal.failure().getMessage()))); // retry on error
+                .doBeforeRetry(signal -> logger.warn("Retrying poll for job {} after failure: {}", jobId, signal.failure().getMessage()))); // retry on error
     }
 }
