@@ -17,7 +17,7 @@ import java.util.Objects;
 public class OllamaTestContainersDefaultConfig {
 
     /**
-     *
+     *TODO make sure this is not pulling the model every time but that teh model is already installed. testoffline
      */
     @Bean
     @ServiceConnection
