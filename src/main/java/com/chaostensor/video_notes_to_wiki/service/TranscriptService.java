@@ -55,6 +55,8 @@ public class TranscriptService {
         transcriptRaw.setStatus(LlmStatus.PENDING);
         transcriptRaw.setVideoPath(videoPath);
         transcriptRaw.setHash(hash);
+        // TODO should set to null but we need to either create a patch ddl entry or drop the table and corresponding Liquibase record and patch it.
+        transcriptRaw.setTranscriptRaw("");
 
         return transcriptRepository.save(transcriptRaw).doOnNext(savedTranscript -> {
             // Start async processing
@@ -75,7 +77,7 @@ public class TranscriptService {
         // probably not necessary but I'm going to leave it for now.
         return transcriptRepository.save(transcriptRaw).flatMap(savedTranscript ->
                 whisperService.transcribeVideo(savedTranscript.getVideoPath()).flatMap(transcriptText -> {
-                    savedTranscript.setTranscript(transcriptText);
+                    savedTranscript.setTranscriptRaw(transcriptText);
                     savedTranscript.setStatus(LlmStatus.COMPLETED);
                     return transcriptRepository.save(savedTranscript);
                 }).onErrorResume(e -> {

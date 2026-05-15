@@ -60,7 +60,7 @@ class EventHandlerTranscriptRawToTranscriptWithEmbeddingsTest {
     void testProcessTranscriptEventSuccess() {
         final TranscriptRaw transcriptRaw = new TranscriptRaw();
         transcriptRaw.setId(UUID.randomUUID());
-        transcriptRaw.setTranscript("Test transcript");
+        transcriptRaw.setTranscriptRaw("Test transcript");
 
         final Mono<Void> result = handler.processTranscriptEvent(transcriptRaw);
 

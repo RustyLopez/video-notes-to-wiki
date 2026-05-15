@@ -15,6 +15,7 @@ import org.springframework.data.r2dbc.mapping.event.BeforeConvertCallback;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,7 +50,9 @@ public class CustomConverters {
         return (entity, table) -> {
             if (entity.getId() == null) {
                 entity.setId(UuidCreator.getTimeOrderedEpoch());
+                entity.setCreatedAt(LocalDateTime.now());
             }
+            entity.setUpdatedAt(LocalDateTime.now());
             return Mono.just(entity);
         };
     }
@@ -58,7 +61,9 @@ public class CustomConverters {
         return (entity, table) -> {
             if (entity.getId() == null) {
                 entity.setId(UuidCreator.getTimeOrderedEpoch());
+                entity.setCreatedAt(LocalDateTime.now());
             }
+            entity.setUpdatedAt(LocalDateTime.now());
             return Mono.just(entity);
         };
     }
@@ -67,7 +72,9 @@ public class CustomConverters {
         return (entity, table) -> {
             if (entity.getId() == null) {
                 entity.setId(UuidCreator.getTimeOrderedEpoch());
+                entity.setCreatedAt(LocalDateTime.now());
             }
+            entity.setUpdatedAt(LocalDateTime.now());
             return Mono.just(entity);
         };
     }
@@ -77,7 +84,9 @@ public class CustomConverters {
         return (entity, table) -> {
             if (entity.getId() == null) {
                 entity.setId(UuidCreator.getTimeOrderedEpoch());
+                entity.setCreatedAt(LocalDateTime.now());
             }
+            entity.setUpdatedAt(LocalDateTime.now());
             return Mono.just(entity);
         };
     }

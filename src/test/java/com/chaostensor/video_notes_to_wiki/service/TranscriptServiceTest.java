@@ -201,7 +201,7 @@ class TranscriptServiceTest {
             completedTranscript.setVideoPath(videoPath);
             completedTranscript.setHash(expectedHash);
             completedTranscript.setStatus(LlmStatus.COMPLETED);
-            completedTranscript.setTranscript("Transcribed text");
+            completedTranscript.setTranscriptRaw("Transcribed text");
 
             when(transcriptRepository.save(any(TranscriptRaw.class)))
                     .thenReturn(Mono.just(pendingTranscript))  // First save (PENDING)

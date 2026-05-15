@@ -100,7 +100,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
         return transcriptRepository.findById(transcriptWithEmbeddings.getTranscriptRawId())
                 .flatMap(transcriptRaw -> {
                     try {
-                        final String transcriptContent = transcriptRaw.getTranscript();
+                        final String transcriptContent = transcriptRaw.getTranscriptRaw();
                         if (transcriptContent == null) {
                             transcriptWithEmbeddings.setStatus(LlmStatus.FAILED);
                             return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings);
