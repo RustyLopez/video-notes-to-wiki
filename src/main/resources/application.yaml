@@ -19,6 +19,7 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     default-schema: public
+    drop-first: true
   ai:
     ollama:
       base-url: ${OLLAMA_URL:http://localhost:8080/v1}
@@ -71,3 +72,10 @@ spring:
     activate:
       on-profile: test
 app:
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  liquibase:
+    drop-first: false

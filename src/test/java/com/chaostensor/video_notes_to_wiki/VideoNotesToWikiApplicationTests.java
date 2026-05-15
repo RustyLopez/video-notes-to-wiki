@@ -1,11 +1,14 @@
 package com.chaostensor.video_notes_to_wiki;
 
+import liquibase.integration.spring.SpringLiquibase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.junit.jupiter.Container;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -17,6 +20,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 @SpringBootTest
 @ActiveProfiles(profiles = "test")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class VideoNotesToWikiApplicationTests {
 
 	@Container
@@ -46,6 +50,20 @@ class VideoNotesToWikiApplicationTests {
 	@Autowired
 	private DatabaseClient databaseClient;
 
+	@Autowired
+	private SpringLiquibase springLiquibase;
+
+	@BeforeAll
+	void liquibaseRollbackBeforeAll() throws Exception {
+		springLiquibase.setDropFirst(true);
+		springLiquibase.afterPropertiesSet();
+	}
+
+	@AfterAll
+	void liquibaseRollbackAfterAll() throws Exception {
+		springLiquibase.setDropFirst(true);
+		springLiquibase.afterPropertiesSet();
+	}
 
 	@Test
 	void contextLoads() {
