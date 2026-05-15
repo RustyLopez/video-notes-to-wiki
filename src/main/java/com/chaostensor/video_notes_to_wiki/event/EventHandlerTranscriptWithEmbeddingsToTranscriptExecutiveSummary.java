@@ -96,8 +96,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
         return Mono.just(event)
         .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(this::processTranscriptWithEmbeddingsEvent)
-        .doOnError(error -> log.error("Error processing event for id: {}", event.getId(), error))
-        .onErrorResume(e -> Mono.empty());
+        .doOnError(error -> log.error("Error processing event for id: {}", event.getId(), error));
     }
 
     Mono<Void> processTranscriptWithEmbeddingsEvent(final TranscriptWithEmbeddings transcriptWithEmbeddings) {
@@ -151,10 +150,7 @@ public class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummary im
                 .retrieve()
                 .bodyToMono(LLMResponse.class)
                 .map(LLMResponse::getResult)
-                .onErrorResume(e -> {
-                    log.error("Error calling LLM", e);
-                    return Mono.error(e);
-                });
+                .doOnError(e -> log.error("Error calling LLM", e));
     }
 
 }

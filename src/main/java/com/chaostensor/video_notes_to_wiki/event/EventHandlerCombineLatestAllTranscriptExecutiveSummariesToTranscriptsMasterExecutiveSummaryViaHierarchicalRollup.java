@@ -109,8 +109,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         return Mono.just(event)
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(this::performHierarchicalRollup)
-                .doOnError(error -> log.error("Error processing rollup for id: {}", event.getId(), error))
-                .onErrorResume(e -> Mono.empty());
+                .doOnError(error -> log.error("Error processing rollup for id: {}", event.getId(), error));
     }
 
     private Mono<Void> performHierarchicalRollup(final TranscriptExecutiveSummary triggerEvent) {
@@ -221,10 +220,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 + "\n\nLayer 1 summaries:\n" + combinedInput;
 
         return callLLM(prompt)
-                .onErrorResume(e -> {
-                    log.error("Failed to summarize chunk at layer {}", layerNumber, e);
-                    return Mono.error(new RuntimeException("LLM summarization failed", e));
-                });
+                .doOnError(e -> log.error("Failed to summarize chunk at layer {}", layerNumber, e));
     }
 
     private Mono<String> callLLM(final String prompt) {
@@ -236,10 +232,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 .retrieve()
                 .bodyToMono(LLMResponse.class)
                 .map(LLMResponse::getResult)
-                .onErrorResume(e -> {
-                    log.error("Error calling LLM", e);
-                    return Mono.error(e);
-                });
+                .doOnError(e -> log.error("Error calling LLM", e));
     }
 
     private Mono<TranscriptsHierarchicalRollup> saveAndPublishRollup(final String summary) {
