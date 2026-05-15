@@ -1,6 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.config;
 
 
+import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbeddingList;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
@@ -26,6 +27,26 @@ public class CustomConverters {
     @Bean
     public R2dbcCustomConversions customConversions(final JsonMapper jsonMapper) {
         final List<Converter<?, ?>> converters = new ArrayList<>();
+        converters.add(new Converter<ChunkEmbeddingList, String>() {
+            @Override
+            public String convert(ChunkEmbeddingList source) {
+                try {
+                    return jsonMapper.writeValueAsString(source);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+        converters.add(new Converter<String, ChunkEmbeddingList>() {
+            @Override
+            public ChunkEmbeddingList convert(String source) {
+                try {
+                    return jsonMapper.readValue(source, ChunkEmbeddingList.class);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
         return R2dbcCustomConversions.of(PostgresDialect.INSTANCE, converters);
     }
 

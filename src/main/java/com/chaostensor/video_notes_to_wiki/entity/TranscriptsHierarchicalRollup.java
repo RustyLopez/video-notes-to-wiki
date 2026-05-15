@@ -25,7 +25,10 @@ public class TranscriptsHierarchicalRollup {
     private String compressedResult;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private ImmutableList<ChunkEmbedding> chunksWithEmbeddings;
+    private ChunkEmbeddingList chunksWithEmbeddings;
 
+    public ImmutableList<ChunkEmbedding> getChunksWithEmbeddings() {
+        return chunksWithEmbeddings != null && chunksWithEmbeddings.getItems() != null ? ImmutableList.copyOf(chunksWithEmbeddings.getItems()) : ImmutableList.of();
+    }
 
 }

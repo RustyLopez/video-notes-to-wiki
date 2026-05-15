@@ -20,14 +20,14 @@ public class TranscriptWithEmbeddings {
     @Id
     private UUID id;
     private UUID transcriptRawId;
-    private List<ChunkEmbedding> chunkEmbeddings;
+    private ChunkEmbeddingList chunkEmbeddings;
     private float[] summaryEmbedding;
     private LlmStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public ImmutableList<ChunkEmbedding> getChunkEmbeddings() {
-        return chunkEmbeddings != null ? ImmutableList.copyOf(chunkEmbeddings) : ImmutableList.of();
+        return chunkEmbeddings != null && chunkEmbeddings.getItems() != null ? ImmutableList.copyOf(chunkEmbeddings.getItems()) : ImmutableList.of();
     }
 
 
