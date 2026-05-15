@@ -69,6 +69,8 @@ public class TranscriptService {
                             if (existing.getStatus() == LlmStatus.FAILED) {
                                 existing.setStatus(LlmStatus.PROCESSING);
                                 return transcriptRepository.save(existing);
+                            } else if (existing.getStatus() == LlmStatus.COMPLETED) {
+                                return Mono.just(existing);
                             } else {
                                 return Mono.<TranscriptRaw>error(new IllegalStateException("Duplicate transcript exists with status " + existing.getStatus()));
                             }
@@ -78,15 +80,19 @@ public class TranscriptService {
                 }
             })
             .doOnNext(savedTranscript -> {
-                // Start async processing
-                processTranscript(savedTranscript).flatMap(completedTranscript -> {
-                    if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
-                        // Publish event for completed transcript
-                        return eventStream.publish(completedTranscript);
-                    }
-                    return Mono.empty();
-                }).subscribe(v -> {
-                }, error -> logger.error("Error processing transcript", error));
+                if (savedTranscript.getStatus() == LlmStatus.COMPLETED) {
+                    eventStream.publish(savedTranscript).subscribe(v -> {}, error -> logger.error("Error publishing transcript", error));
+                } else {
+                    // Start async processing
+                    processTranscript(savedTranscript).flatMap(completedTranscript -> {
+                        if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
+                            // Publish event for completed transcript
+                            return eventStream.publish(completedTranscript);
+                        }
+                        return Mono.empty();
+                    }).subscribe(v -> {
+                    }, error -> logger.error("Error processing transcript", error));
+                }
             });
     }
 
