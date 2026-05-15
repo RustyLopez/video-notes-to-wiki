@@ -2,7 +2,7 @@ package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbedding;
-import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbeddingList;
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
@@ -243,7 +243,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
             rollup.setCompressedResult(summary);
             rollup.setCreatedAt(LocalDateTime.now());
             rollup.setUpdatedAt(LocalDateTime.now());
-            rollup.setChunksWithEmbeddings(new ChunkEmbeddingList(chunkEmbeddings));
+            rollup.setChunksWithEmbeddings(ChunkEmbeddingList.of(chunkEmbeddings));
 
             return transcriptsHierarchicalRollupRepository.save(rollup)
                     .flatMap(saved -> compressedTranscriptsEventStream.publish(saved).thenReturn(saved))

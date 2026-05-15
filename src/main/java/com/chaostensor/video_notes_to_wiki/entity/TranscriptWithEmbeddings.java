@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import com.google.common.collect.ImmutableList;
 
 @Table("transcript_with_embeddings")

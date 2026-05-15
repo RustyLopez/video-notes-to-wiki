@@ -1,7 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.config;
 
 
-import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbeddingList;
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;

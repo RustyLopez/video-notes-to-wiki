@@ -1,6 +1,6 @@
 package com.chaostensor.video_notes_to_wiki.config;
 
-import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbeddingList;
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import io.r2dbc.postgresql.codec.Json;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.WritingConverter;

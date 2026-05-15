@@ -2,7 +2,7 @@ package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
 import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbedding;
-import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbeddingList;
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
@@ -153,7 +153,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
                                 .mapToObj(i -> new ChunkEmbedding(chunks.get(i), embeddings.get(i)))
                                 .toList();
 
-                        transcriptWithEmbeddings.setChunkEmbeddings(new ChunkEmbeddingList(chunkEmbeddings));
+                        transcriptWithEmbeddings.setChunkEmbeddings(ChunkEmbeddingList.of(chunkEmbeddings));
                         transcriptWithEmbeddings.setStatus(LlmStatus.COMPLETED);
                         transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
 
