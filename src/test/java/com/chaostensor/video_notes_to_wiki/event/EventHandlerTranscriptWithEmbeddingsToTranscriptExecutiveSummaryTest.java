@@ -17,6 +17,7 @@ import org.testcontainers.ollama.OllamaContainer;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -61,6 +62,15 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
     void testProcessEventSuccess() {
         final TranscriptWithEmbeddings event = new TranscriptWithEmbeddings();
         event.setId(UUID.randomUUID());
+
+        // Save an existing summary to make the event processing succeed (no-op)
+        final TranscriptExecutiveSummary existingSummary = new TranscriptExecutiveSummary();
+        existingSummary.setId(event.getId());
+        existingSummary.setTranscriptWithEmbeddingsId(event.getId());
+        existingSummary.setResult("existing summary");
+        existingSummary.setCreatedAt(LocalDateTime.now());
+        existingSummary.setUpdatedAt(LocalDateTime.now());
+        transcriptExecutiveSummaryRepository.save(existingSummary).block();
 
         final Mono<Void> result = handler.processEvent(event);
 
