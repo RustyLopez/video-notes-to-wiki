@@ -32,7 +32,7 @@ public class TranscriptRawController {
                         final DtoTranscriptRaw response =
                                 DtoTranscriptRaw.builder()
                                         .id(transcript.getId())
-                                        .status(LlmStatus.PENDING)
+                                        .status(LlmStatus.COMPLETED)
                                         .videoPath(transcript.getVideoPath())
                                         .build();
                         return Mono.just(ResponseEntity.ok(response));

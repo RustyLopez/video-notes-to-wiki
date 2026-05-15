@@ -73,6 +73,7 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
     void testProcessEventSuccess() {
         final TranscriptWithEmbeddings event = new TranscriptWithEmbeddings();
         event.setId(UUID.randomUUID());
+        event.setChunkEmbeddings(com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList.of(java.util.List.of()));
 
         // Save an existing summary to make the event processing succeed (no-op)
         final TranscriptExecutiveSummary existingSummary = new TranscriptExecutiveSummary();
@@ -93,6 +94,7 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
     void testProcessTranscriptWithEmbeddingsEventNew() {
         final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
+        transcriptWithEmbeddings.setChunkEmbeddings(com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList.of(java.util.List.of()));
 
         final Mono<Void> result = handler.processTranscriptWithEmbeddingsEvent(transcriptWithEmbeddings);
 
@@ -104,6 +106,7 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
     void testProcessTranscriptWithEmbeddingsEventExists() {
         final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
+        transcriptWithEmbeddings.setChunkEmbeddings(com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList.of(java.util.List.of()));
 
         final Mono<Void> result = handler.processTranscriptWithEmbeddingsEvent(transcriptWithEmbeddings);
 
@@ -115,6 +118,7 @@ class EventHandlerTranscriptWithEmbeddingsToTranscriptExecutiveSummaryTest {
     void testCreateWikiReadyTranscript() {
         final TranscriptWithEmbeddings transcriptWithEmbeddings = new TranscriptWithEmbeddings();
         transcriptWithEmbeddings.setId(UUID.randomUUID());
+        transcriptWithEmbeddings.setChunkEmbeddings(com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList.of(java.util.List.of()));
 
         final Mono<TranscriptExecutiveSummary> result = handler.createWikiReadyTranscript(transcriptWithEmbeddings);
 
