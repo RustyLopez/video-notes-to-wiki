@@ -19,8 +19,7 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     default-schema: public
-    # K can't .. use this just yet until we can get the  whisper tables into a separate schema.
-    drop-first: false # true
+    drop-first: true
   ai:
     ollama:
       base-url: ${OLLAMA_URL:http://localhost:11434/v1}
