@@ -252,18 +252,23 @@ EventHandlerTranscriptsHierarchicalRollupToWiki --> EventStream : subscribes/pub
 
 ### Using Docker Compose
 1. Clone the repository
-2. Ensure Docker and Docker Compose are installed
-3. Run `docker-compose up` from the project root
-4. The services will start:
+2. Initialize the git submodule: `git submodule update --init --recursive`
+3. Build the whisper-wrapper project: `cd whisper-wrapper && mvn clean package && cd ..`
+4. Build the root project: `mvn clean package`
+5. Ensure Docker and Docker Compose are installed
+6. Run `docker-compose up` from the project root
+7. The services will start:
    - PostgreSQL database on port 5432
-   - Spring Boot app on port 8080
+   - Spring Boot app on port 8060
    - Ollama (LLM service) on port 11434
-   - Chroma (vector database) on port 8000
-   - Whisper wrapper (transcription service)
+   - Whisper wrapper (transcription service) on port 8070
 
 ### Local Development
-1. Start the external services (PostgreSQL, Ollama, Chroma) using `docker-compose up postgres ollama chroma whisper-wrapper`
-2. Run the Spring Boot app with `mvn spring-boot:run`
+1. Clone the repository
+2. Initialize the git submodule: `git submodule update --init --recursive`
+3. Build the whisper-wrapper project: `cd whisper-wrapper && mvn clean package && cd ..`
+4. Start the external services (PostgreSQL, Ollama, Chroma, Whisper wrapper) using `docker-compose up postgres ollama chroma whisper-wrapper`
+5. Run the Spring Boot app with `mvn spring-boot:run`
 
 ## Usage
 
