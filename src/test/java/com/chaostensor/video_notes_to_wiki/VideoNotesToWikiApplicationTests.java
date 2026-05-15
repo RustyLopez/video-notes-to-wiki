@@ -47,23 +47,6 @@ class VideoNotesToWikiApplicationTests {
 		registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never");
 	}
 
-	@Autowired
-	private DatabaseClient databaseClient;
-
-	@Autowired
-	private SpringLiquibase springLiquibase;
-
-	@BeforeAll
-	void liquibaseRollbackBeforeAll() throws Exception {
-		springLiquibase.setDropFirst(true);
-		springLiquibase.afterPropertiesSet();
-	}
-
-	@AfterAll
-	void liquibaseRollbackAfterAll() throws Exception {
-		springLiquibase.setDropFirst(true);
-		springLiquibase.afterPropertiesSet();
-	}
 
 	@Test
 	void contextLoads() {
