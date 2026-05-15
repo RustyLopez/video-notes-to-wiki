@@ -44,7 +44,8 @@ public class OllamaTestContainersDefaultConfig  {
             throw new IOException("Failed to pull model: " + execResult.getStderr());
         }
         System.getProperties().put("spring.ai.ollama.base-url", result.getEndpoint());
-        System.getProperties().put("spring.ai.ollama.chat.model", OllamaModel.LLAMA3_2.getName());
+        // TODO Idk clean this up, this maps to, the prop below System.getProperties().put("spring.ai.ollama.chat.model", OllamaModel.LLAMA3_2.getName());
+        System.getProperties().put("app.llm.chat.models.preferred", OllamaModel.LLAMA3_2.getName());
         System.getProperties().put("spring.ai.ollama.init.pull-model-strategy", "never"/* should already be */);
 
 
