@@ -55,7 +55,7 @@ app:
     chat:
       models:
         # spring ai may setup multiple so we need to clarify our preferred.
-        preferred: Qwen/Qwen3.5-9B
+        preferred: tinyllama:1.1b
     embeddings:
       models:
         # spring ai may setup multiple so we need to clarify our preferred.
