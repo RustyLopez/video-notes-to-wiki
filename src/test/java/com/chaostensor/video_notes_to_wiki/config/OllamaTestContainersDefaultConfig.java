@@ -15,7 +15,7 @@ import static org.testcontainers.containers.BindMode.READ_WRITE;
 
 @TestConfiguration(proxyBeanMethods = false)
 @Profile("test")
-public class OllamaTestContainersDefaultConfig {
+public class OllamaTestContainersDefaultConfig  {
 
     /**
      *TODO make sure this is not pulling the model every time but that teh model is already installed. testoffline
@@ -43,6 +43,11 @@ public class OllamaTestContainersDefaultConfig {
         if (execResult.getExitCode() != 0) {
             throw new IOException("Failed to pull model: " + execResult.getStderr());
         }
+        System.getProperties().put("spring.ai.ollama.base-url", result.getEndpoint());
+        System.getProperties().put("spring.ai.ollama.chat.model", OllamaModel.LLAMA3_2.getName());
+        System.getProperties().put("spring.ai.ollama.init.pull-model-strategy", "never"/* should already be */);
+
+
         return result;
     }
 }

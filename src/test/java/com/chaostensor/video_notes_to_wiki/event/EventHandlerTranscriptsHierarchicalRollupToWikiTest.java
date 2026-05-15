@@ -43,8 +43,6 @@ class EventHandlerTranscriptsHierarchicalRollupToWikiTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
 
-        registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never"/* should already be */);
-        registry.add("app.llm.chat.models.preferred", OllamaModel.LLAMA3_2::getName);
     }
 
     @Autowired
