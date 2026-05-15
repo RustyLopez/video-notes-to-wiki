@@ -1,10 +1,12 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
+import com.chaostensor.video_notes_to_wiki.config.OllamaTestContainersDefaultConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.ollama.api.OllamaModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -15,6 +17,7 @@ import org.testcontainers.ollama.OllamaContainer;
 
 @Testcontainers
 @SpringBootTest
+@Import(OllamaTestContainersDefaultConfig.class)
 @ActiveProfiles("test")
 class EventHandlerTranscriptsHierarchicalRollupToWikiTest {
 

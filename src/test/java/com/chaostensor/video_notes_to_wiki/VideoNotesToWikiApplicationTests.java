@@ -1,7 +1,10 @@
 package com.chaostensor.video_notes_to_wiki;
 
+import com.chaostensor.video_notes_to_wiki.config.OllamaTestContainersDefaultConfig;
 import liquibase.integration.spring.SpringLiquibase;
+import org.springframework.ai.ollama.api.OllamaModel;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Container;
@@ -19,8 +22,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @SpringBootTest
-@ActiveProfiles(profiles = "test")
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Import(OllamaTestContainersDefaultConfig.class)
+@ActiveProfiles("test")
 class VideoNotesToWikiApplicationTests {
 
 	@Container
@@ -28,9 +31,6 @@ class VideoNotesToWikiApplicationTests {
 			.withDatabaseName("testdb")
 			.withUsername("test")
 			.withPassword("test");
-
-	@Container
-	static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
 
 	@DynamicPropertySource
 	static void registerProperties(final DynamicPropertyRegistry registry) {
@@ -43,8 +43,8 @@ class VideoNotesToWikiApplicationTests {
 		registry.add("spring.datasource.password", postgresWithVector::getPassword);
 		registry.add("spring.datasource.driver-class-name", ()->"org.postgresql.Driver");
 
-		registry.add("spring.ai.ollama.base-url", ollama::getEndpoint);
-		registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never");
+		registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never"/* should already be */);
+		registry.add("app.llm.chat.models.preferred", OllamaModel.LLAMA3_2::getName);
 	}
 
 
