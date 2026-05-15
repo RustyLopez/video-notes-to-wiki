@@ -6,6 +6,7 @@ import com.chaostensor.video_notes_to_wiki.event.EventStream;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -14,6 +15,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
 
 import org.apache.commons.codec.digest.DigestUtils;
 
@@ -58,17 +60,34 @@ public class TranscriptService {
         // TODO should set to null but we need to either create a patch ddl entry or drop the table and corresponding Liquibase record and patch it.
         transcriptRaw.setTranscriptRaw("");
 
-        return transcriptRepository.save(transcriptRaw).doOnNext(savedTranscript -> {
-            // Start async processing
-            processTranscript(savedTranscript).flatMap(completedTranscript -> {
-                if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
-                    // Publish event for completed transcript
-                    return eventStream.publish(completedTranscript);
+        return transcriptRepository.save(transcriptRaw)
+            .onErrorResume(throwable -> {
+                if ("org.springframework.dao.DuplicateKeyException".equals(throwable.getClass().getName()) ||
+                    "io.r2dbc.postgresql.ExceptionFactory$PostgresqlDataIntegrityViolationException".equals(throwable.getClass().getName())) {
+                    return transcriptRepository.findByHash(hash)
+                        .flatMap(existing -> {
+                            if (existing.getStatus() == LlmStatus.FAILED) {
+                                existing.setStatus(LlmStatus.PROCESSING);
+                                return transcriptRepository.save(existing);
+                            } else {
+                                return Mono.<TranscriptRaw>error(new IllegalStateException("Duplicate transcript exists with status " + existing.getStatus()));
+                            }
+                        });
+                } else {
+                    return Mono.<TranscriptRaw>error(throwable);
                 }
-                return Mono.empty();
-            }).subscribe(v -> {
-            }, error -> logger.error("Error processing transcript", error));
-        });
+            })
+            .doOnNext(savedTranscript -> {
+                // Start async processing
+                processTranscript(savedTranscript).flatMap(completedTranscript -> {
+                    if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
+                        // Publish event for completed transcript
+                        return eventStream.publish(completedTranscript);
+                    }
+                    return Mono.empty();
+                }).subscribe(v -> {
+                }, error -> logger.error("Error processing transcript", error));
+            });
     }
 
     private Mono<TranscriptRaw> processTranscript(final TranscriptRaw transcriptRaw) {
