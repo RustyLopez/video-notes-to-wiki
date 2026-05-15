@@ -28,9 +28,9 @@ services:
     depends_on:
       # Ugh k if any one of these has a condition they all do
       ollama:
-        condition: service_started # TOdo switch to service healthy once we have a health chekc seutp
+        condition: service_started
       whisper-wrapper:
-        condition: service_started # TOdo switch to service healthy once we have a health chekc seutp
+        condition: service_started
       postgres-w-vector:
         condition: service_healthy
 
