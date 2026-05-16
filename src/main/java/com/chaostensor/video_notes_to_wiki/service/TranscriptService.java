@@ -1,5 +1,6 @@
 package com.chaostensor.video_notes_to_wiki.service;
 
+import com.chaostensor.video_notes_to_wiki.dto.TranscriptCreationResult;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.event.EventStream;
@@ -7,7 +8,6 @@ import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -36,25 +36,36 @@ public class TranscriptService {
         this.eventStream = eventStream;
     }
 
-    public Mono<TranscriptRaw> createTranscript(final String videoPath) {
+    public TranscriptCreationResult createTranscript(final String videoPath) {
         final String hash;
         try {
             hash = computeFileHash(videoPath);
         } catch (final Exception e) {
             logger.error("Failed to compute hash for video: {}", videoPath, e);
-            return Mono.error(e);
+            return TranscriptCreationResult.builder()
+                .initiation(Mono.error(e))
+                .completion(Mono.error(e))
+                .build();
         }
 
-        return transcriptRepository.findByVideoPathAndHash(videoPath, hash).flatMap(existing -> {
+        final Mono<TranscriptRaw> initiation = transcriptRepository.findByVideoPathAndHash(videoPath, hash).flatMap(existing -> {
             logger.warn("Video at path {} with hash {} is a duplicate. Not transcribing. If this is not a duplicate, please rename the file.", videoPath, hash);
             return Mono.<TranscriptRaw>empty();
         }).switchIfEmpty(transcriptRepository.findByHash(hash).flatMap(existing -> {
             logger.warn("Video with hash {} already exists at different path {}. Proceeding with transcription.", hash, existing.getVideoPath());
-            return createNewTranscript(videoPath, hash);
-        }).switchIfEmpty(Mono.defer(() -> createNewTranscript(videoPath, hash))));
+            return createNewTranscript(videoPath, hash).getInitiation();
+        }).switchIfEmpty(Mono.defer(() -> createNewTranscript(videoPath, hash).getInitiation())));
+        final Mono<TranscriptRaw> completion = transcriptRepository.findByVideoPathAndHash(videoPath, hash).flatMap(existing -> {
+            logger.warn("Video at path {} with hash {} is a duplicate. Not transcribing. If this is not a duplicate, please rename the file.", videoPath, hash);
+            return Mono.<TranscriptRaw>empty();
+        }).switchIfEmpty(transcriptRepository.findByHash(hash).flatMap(existing -> {
+            logger.warn("Video with hash {} already exists at different path {}. Proceeding with transcription.", hash, existing.getVideoPath());
+            return createNewTranscript(videoPath, hash).getCompletion();
+        }).switchIfEmpty(Mono.defer(() -> createNewTranscript(videoPath, hash).getCompletion())));
+        return TranscriptCreationResult.builder().initiation(initiation).completion(completion).build();
     }
 
-    private Mono<TranscriptRaw> createNewTranscript(final String videoPath, final String hash) {
+    private TranscriptCreationResult createNewTranscript(final String videoPath, final String hash) {
         final TranscriptRaw transcriptRaw = new TranscriptRaw();
         transcriptRaw.setStatus(LlmStatus.PENDING);
         transcriptRaw.setVideoPath(videoPath);
@@ -62,7 +73,7 @@ public class TranscriptService {
         // TODO should set to null but we need to either create a patch ddl entry or drop the table and corresponding Liquibase record and patch it.
         transcriptRaw.setTranscriptRaw("");
 
-        return transcriptRepository.save(transcriptRaw)
+        final Mono<TranscriptRaw> saved = transcriptRepository.save(transcriptRaw)
             .onErrorResume(throwable -> {
                 if ("org.springframework.dao.DuplicateKeyException".equals(throwable.getClass().getName()) ||
                     "io.r2dbc.postgresql.ExceptionFactory$PostgresqlDataIntegrityViolationException".equals(throwable.getClass().getName())) {
@@ -81,22 +92,25 @@ public class TranscriptService {
                 } else {
                     return Mono.<TranscriptRaw>error(throwable);
                 }
-            })
-            .doOnNext(savedTranscript -> {
-                if (savedTranscript.getStatus() == LlmStatus.COMPLETED) {
-                    eventStream.publish(savedTranscript).subscribe(v -> {}, error -> logger.error("Error publishing transcript", error));
-                } else {
-                    // Start async processing
-                    processTranscript(savedTranscript).flatMap(completedTranscript -> {
-                        if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
-                            // Publish event for completed transcript
-                            return eventStream.publish(completedTranscript);
-                        }
-                        return Mono.empty();
-                    }).subscribe(v -> {
-                    }, error -> logger.error("Error processing transcript", error));
-                }
             });
+        final Mono<TranscriptRaw> initiation = saved.doOnNext(savedTranscript -> {
+            if (savedTranscript.getStatus() == LlmStatus.COMPLETED) {
+                eventStream.publish(savedTranscript).subscribe(v -> {}, error -> logger.error("Error publishing transcript", error));
+            }
+        });
+        final Mono<TranscriptRaw> completion = saved.flatMap(savedTranscript -> {
+            if (savedTranscript.getStatus() == LlmStatus.COMPLETED) {
+                return eventStream.publish(savedTranscript).thenReturn(savedTranscript);
+            } else {
+                return processTranscript(savedTranscript).flatMap(completedTranscript -> {
+                    if (completedTranscript.getStatus() == LlmStatus.COMPLETED) {
+                        return eventStream.publish(completedTranscript).thenReturn(completedTranscript);
+                    }
+                    return Mono.just(completedTranscript);
+                });
+            }
+        });
+        return TranscriptCreationResult.builder().initiation(initiation).completion(completion).build();
     }
 
     private Mono<TranscriptRaw> processTranscript(final TranscriptRaw transcriptRaw) {

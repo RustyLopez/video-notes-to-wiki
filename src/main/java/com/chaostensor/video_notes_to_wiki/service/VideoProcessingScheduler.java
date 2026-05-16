@@ -69,7 +69,7 @@ public class VideoProcessingScheduler {
                 transcriptRepository.findByVideoPath(videoPath).hasElement().flatMap(exists -> {
                     if (!exists) {
                         logger.info("Processing new video file: {}", videoPath);
-                        return transcriptService.createTranscript(videoPath);
+                        return transcriptService.createTranscript(videoPath).getInitiation();
                     } else {
                         logger.debug("Video file already processed: {}", videoPath);
                         return reactor.core.publisher.Mono.empty();
