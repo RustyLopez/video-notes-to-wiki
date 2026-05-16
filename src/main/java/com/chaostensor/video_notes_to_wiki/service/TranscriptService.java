@@ -4,6 +4,7 @@ import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.event.EventStream;
 import com.chaostensor.video_notes_to_wiki.repository.TranscriptRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -20,6 +21,7 @@ import java.nio.file.Paths;
 import org.apache.commons.codec.digest.DigestUtils;
 
 @Service
+@Slf4j
 public class TranscriptService {
 
     private static final Logger logger = LoggerFactory.getLogger(TranscriptService.class);
@@ -81,7 +83,8 @@ public class TranscriptService {
             })
             .doOnNext(savedTranscript -> {
                 if (savedTranscript.getStatus() == LlmStatus.COMPLETED) {
-                    eventStream.publish(savedTranscript).subscribe(v -> {}, error -> logger.error("Error publishing transcript", error));
+                    log.warn("Record already completed, will re-publish to subsequent steps which may be incomplete.");
+                    eventStream.publish(savedTranscript);
                 } else {
                     // Start async processing
                     processTranscript(savedTranscript).flatMap(completedTranscript -> {
@@ -90,8 +93,7 @@ public class TranscriptService {
                             return eventStream.publish(completedTranscript);
                         }
                         return Mono.empty();
-                    }).subscribe(v -> {
-                    }, error -> logger.error("Error processing transcript", error));
+                    });
                 }
             });
     }
@@ -111,6 +113,7 @@ public class TranscriptService {
                     savedTranscript.setStatus(LlmStatus.COMPLETED);
                     return transcriptRepository.save(savedTranscript);
                 }).onErrorResume(e -> {
+                    logger.error("Error processing transcript", e);
                     savedTranscript.setStatus(LlmStatus.FAILED);
                     return transcriptRepository.save(savedTranscript);
                 }));
