@@ -78,12 +78,18 @@ public class TranscriptService {
                     return Mono.<TranscriptRaw>error(throwable);
                 }
             });
+
+        // TODO This is all super confusing
+         // do this better.
+         // we are basically not re-processing if we found an existing record.
+         // but the way this is organized, it is like inverted.
+
         final Mono<TranscriptRaw> initiation = saved.doOnNext(savedTranscript -> {
             if (savedTranscript.getStatus() == LlmStatus.COMPLETED) {
                 eventStream.publish(savedTranscript).subscribe(v -> {}, error -> logger.error("Error publishing transcript", error));
             }
-        });
-        final Mono<TranscriptRaw> completion = saved.flatMap(savedTranscript -> {
+        }).share();
+        final Mono<TranscriptRaw> completion = initiation.flatMap(savedTranscript -> {
             if (savedTranscript.getStatus() == LlmStatus.COMPLETED) {
                 return eventStream.publish(savedTranscript).thenReturn(savedTranscript);
             } else {
