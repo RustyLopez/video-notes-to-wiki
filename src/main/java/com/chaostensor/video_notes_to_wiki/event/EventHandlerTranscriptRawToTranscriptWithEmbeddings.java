@@ -78,6 +78,8 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
         transcriptWithEmbeddings.setStatus(LlmStatus.PENDING);
         transcriptWithEmbeddings.setCreatedAt(LocalDateTime.now());
         transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
+        // todo make this nullable
+        transcriptWithEmbeddings.setChunkEmbeddings(ChunkEmbeddingList.builder().build());
 
         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                 .doOnNext(saved -> {

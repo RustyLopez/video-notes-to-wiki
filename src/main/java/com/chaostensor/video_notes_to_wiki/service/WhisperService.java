@@ -78,7 +78,9 @@ public class WhisperService {
             .timeout(java.time.Duration.ofMinutes(30)) // timeout after 30 minutes TODO: make this configurable or.. even discoverable .. or inferrable.  It can be pretty long...
                 // k we need a much longer backoff here if we are going to actually wait 30 minutes.
                 // TODO these two configurations are kind of interdependent, maybe derive the timeout from teh backoff or vice versa.
-            .retryWhen(Retry.backoff(30, java.time.Duration.ofSeconds(60))
+                // todo should base off video length but we dont have ffmpeg
+                //  HOWEVER the server has to do an estimation to set timeouts, and could return that
+            .retryWhen(Retry.fixedDelay(60, java.time.Duration.ofSeconds(30))
                 .doBeforeRetry(signal -> logger.warn("Retrying poll for job {} after failure: {}", jobId, signal.failure().getMessage()))); // retry on error
     }
 }
