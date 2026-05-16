@@ -57,6 +57,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### Dirs ai agents keep creating ( TODO figure out how to  get them to use maven.. and stop generatiog eclipse files )
+bin
+
 
 *.png
 *.jpg
@@ -77,3 +80,4 @@ video-output
 transcript-output
 models
 whisper-wrapper
+
