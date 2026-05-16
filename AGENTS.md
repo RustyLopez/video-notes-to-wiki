@@ -10,6 +10,8 @@ The project is configured via maven for annotation processing to handle Lombok c
 
 IntelliJ is the supported IDE for development.
 
+Docker is required for tests to pass. If tests are failing with failure to find a Docker environment, then notify the user that they need to start docker before tests can be run.
+
 ## Code Standards
 
 - Immutability by default. 
@@ -32,3 +34,4 @@ IntelliJ is the supported IDE for development.
 - As much as possible seek to minimize cyclomatic complexity.
 - Avoid code duplication, look for ways to re-use code that does conceptually the same task.
 - Avoid "conditional relevance" in model declared fields or in method args. This is where one field or arg may not be relevant unless another field or arg has a specific value. To resolve this, favor polymorphic encapsulations of the related fields instead.
+- Avoid using java "var" field declarations. Favor strongly typed variable declarations.
