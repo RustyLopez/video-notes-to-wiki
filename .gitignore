@@ -76,3 +76,4 @@ wiki-output
 video-output
 transcript-output
 models
+whisper-wrapper
