@@ -19,7 +19,7 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     default-schema: public
-    drop-first: true
+    drop-first: false
   ai:
     ollama:
       base-url: ${OLLAMA_URL:http://localhost:11434/v1}
