@@ -4,6 +4,12 @@ This is a spring boot 4, Java 21, reactive web flux based web application.
 
 The project includes another similarly architected application as a git submodule in the whisper-wrapper directory.
 
+The project uses maven for project configuration the .mvnw or .mvnw.cmd executables to compile and run tests.
+
+The project is configured via maven for annotation processing to handle Lombok code generation.
+
+IntelliJ is the supported IDE for development.
+
 ## Code Standards
 
 - Immutability by default. 
