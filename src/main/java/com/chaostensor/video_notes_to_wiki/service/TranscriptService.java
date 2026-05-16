@@ -100,6 +100,11 @@ public class TranscriptService {
         transcriptRaw.setStatus(LlmStatus.PROCESSING);
         // note seems like a redundant save but we are changing status to processing.
         // probably not necessary but I'm going to leave it for now.
+        // NOTE: we have retries that will fail if we are currently processing which is by design.
+           // Um the retries wouldn't typically hit again on the same session , but the hashing on the whisper-wrapper
+           // side is taking too long to get the initial response back ( before async processing)
+           ///  so that increases he likelihood of  the scheduled retry job hitting his method again before
+        // we get our initial http response back and move the video out of the idr.
         return transcriptRepository.save(transcriptRaw).flatMap(savedTranscript ->
                 whisperService.transcribeVideo(savedTranscript.getVideoPath()).flatMap(transcriptText -> {
                     savedTranscript.setTranscriptRaw(transcriptText);
