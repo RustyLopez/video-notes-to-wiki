@@ -109,7 +109,8 @@ public class TranscriptService {
                     return Mono.just(completedTranscript);
                 });
             }
-        });
+        }).share();
+        completion.subscribe(v -> {}, error -> logger.error("Error processing transcript", error));
         return TranscriptCreationResult.builder().initiation(initiation).completion(completion).build();
     }
 
