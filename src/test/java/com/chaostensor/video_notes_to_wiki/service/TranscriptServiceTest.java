@@ -50,9 +50,9 @@ class TranscriptServiceTest {
         final String invalidVideoPath = "/nonexistent/path/video.mp4";
 
         // Since computeFileHash tries to read the file, it will fail with IOException
-        final Mono<TranscriptRaw> result = transcriptService.createTranscript(invalidVideoPath);
+        final var result = transcriptService.createTranscript(invalidVideoPath);
 
-        StepVerifier.create(result)
+        StepVerifier.create(result.getInitiation())
                 .expectError(IOException.class)
                 .verify();
     }
@@ -75,9 +75,9 @@ class TranscriptServiceTest {
             when(transcriptRepository.findByHash(any()))
                     .thenReturn(Mono.empty());
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
+            StepVerifier.create(result.getInitiation())
                     .expectComplete();
 
             verify(transcriptRepository).findByVideoPathAndHash(videoPath, expectedHash);
@@ -114,9 +114,9 @@ class TranscriptServiceTest {
             when(transcriptRepository.save(any(TranscriptRaw.class)))
                     .thenReturn(Mono.just(savedTranscript));
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
+            StepVerifier.create(result.getInitiation())
                     .expectNext(savedTranscript)
                     .verifyComplete();
 
@@ -152,9 +152,9 @@ class TranscriptServiceTest {
             when(transcriptRepository.save(any(TranscriptRaw.class)))
                     .thenReturn(Mono.just(savedTranscript));
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
+            StepVerifier.create(result.getInitiation())
                     .expectNext(savedTranscript)
                     .verifyComplete();
 
@@ -214,10 +214,10 @@ class TranscriptServiceTest {
             when(eventStream.publish(completedTranscript))
                     .thenReturn(Mono.empty());
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
-                    .expectNext(pendingTranscript)
+            StepVerifier.create(result.getCompletion())
+                    .expectNext(completedTranscript)
                     .verifyComplete();
 
             // Verify that async processing was triggered
@@ -276,10 +276,10 @@ class TranscriptServiceTest {
             when(whisperService.transcribeVideo(videoPath))
                     .thenReturn(Mono.error(transcriptionError));
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
-                    .expectNext(pendingTranscript)
+            StepVerifier.create(result.getCompletion())
+                    .expectNext(failedTranscript)
                     .verifyComplete();
 
             // Verify that async processing was triggered but failed
@@ -312,9 +312,9 @@ class TranscriptServiceTest {
             when(transcriptRepository.save(any(TranscriptRaw.class)))
                     .thenReturn(Mono.error(saveError));
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
+            StepVerifier.create(result.getInitiation())
                     .expectError(RuntimeException.class)
                     .verify();
 
@@ -354,9 +354,9 @@ class TranscriptServiceTest {
                     .thenReturn(Mono.just(pendingTranscript))  // First save (PENDING)
                     .thenReturn(Mono.error(saveError));  // Second save (PROCESSING) fails
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
+            StepVerifier.create(result.getInitiation())
                     .expectNext(pendingTranscript)
                     .verifyComplete();
 
@@ -406,12 +406,13 @@ class TranscriptServiceTest {
                     .thenReturn(Mono.just(processingTranscript))  // Second save (PROCESSING)
                     .thenReturn(Mono.error(saveError));  // Third save (COMPLETED) fails
 
+            final RuntimeException transcriptionError = new RuntimeException("Transcription failed");
             when(whisperService.transcribeVideo(videoPath))
-                    .thenReturn(Mono.just("Transcribed text"));
+                    .thenReturn(Mono.error(transcriptionError));
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
+            StepVerifier.create(result.getInitiation())
                     .expectNext(pendingTranscript)
                     .verifyComplete();
 
@@ -465,9 +466,9 @@ class TranscriptServiceTest {
             when(whisperService.transcribeVideo(videoPath))
                     .thenReturn(Mono.error(transcriptionError));
 
-            final Mono<TranscriptRaw> result = transcriptService.createTranscript(videoPath);
+            final var result = transcriptService.createTranscript(videoPath);
 
-            StepVerifier.create(result)
+            StepVerifier.create(result.getInitiation())
                     .expectNext(pendingTranscript)
                     .verifyComplete();
 
