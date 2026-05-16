@@ -4,7 +4,7 @@
 CREATE TABLE transcript_with_embeddings (
     id UUID PRIMARY KEY,
     transcript_raw_id UUID NOT NULL REFERENCES transcript_raw(id),
-    chunkEmbeddings JSONB NOT NULL,  -- List of ChunkEmbedding objects
+    chunk_embeddings JSONB NOT NULL,  -- List of ChunkEmbedding objects
     status VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
