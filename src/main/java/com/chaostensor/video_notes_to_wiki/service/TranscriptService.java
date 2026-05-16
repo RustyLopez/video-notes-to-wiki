@@ -84,8 +84,7 @@ public class TranscriptService {
             })
             .doOnNext(savedTranscript -> {
                 if (savedTranscript.getStatus() == LlmStatus.COMPLETED) {
-                    log.warn("Record already completed, will re-publish to subsequent steps which may be incomplete.");
-                    eventStream.publish(savedTranscript).subscribe();
+                    eventStream.publish(savedTranscript).subscribe(v -> {}, error -> logger.error("Error publishing transcript", error));
                 } else {
                     // Start async processing
                     processTranscript(savedTranscript).flatMap(completedTranscript -> {
@@ -94,7 +93,8 @@ public class TranscriptService {
                             return eventStream.publish(completedTranscript);
                         }
                         return Mono.empty();
-                    }).subscribe();
+                    }).subscribe(v -> {
+                    }, error -> logger.error("Error processing transcript", error));
                 }
             });
     }
