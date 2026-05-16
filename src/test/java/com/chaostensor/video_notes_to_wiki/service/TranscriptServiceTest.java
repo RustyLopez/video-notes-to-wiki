@@ -210,8 +210,6 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-            when(transcriptRepository.findByHash(expectedHash))
-                    .thenReturn(Mono.empty());
 
             // Mock the initial save for PENDING status
             final TranscriptRaw pendingTranscript = new TranscriptRaw();
@@ -268,10 +266,6 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-
-            when(transcriptRepository.findByHash(expectedHash))
-                    .thenReturn(Mono.empty());
-
             // Mock the initial save for PENDING status
             final TranscriptRaw pendingTranscript = new TranscriptRaw();
             pendingTranscript.setId(UUID.randomUUID());
@@ -321,10 +315,6 @@ class TranscriptServiceTest {
 
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
-
-
-            when(transcriptRepository.findByHash(expectedHash))
-                    .thenReturn(Mono.empty());
 
             // Mock the initial save for PENDING status
             final TranscriptRaw pendingTranscript = new TranscriptRaw();
