@@ -21,6 +21,7 @@ Docker is required for tests to pass. If tests are failing with failure to find 
 - All exceptions that are not being re-thrown should be logged even if a fallback is inplace. If a fallback is in place then the log level can be warning.
 - Use lombok wherever possible.
 - All DTOs or other non Entity, simple state bearing objects, should use lombok immutable @Value and @Builder annotations. 
+- Avoid redundantly declaring fields final and private if using the @Value lombok annotation on a DTO. Lombok will be generating those.
 - All persistent r2dbc Entity models should use @Data.
 - Note that R2dbc does not save new entities if they have a pre-allocated id. Therefore, BeforeConvertCallback beans should be registered for all entities to pre-allocate ids.
 - All entities need corresponding database table definitions in liquibase. 
