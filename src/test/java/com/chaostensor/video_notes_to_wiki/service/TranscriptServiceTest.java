@@ -105,13 +105,6 @@ class TranscriptServiceTest {
 
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
-            final TranscriptRaw existingTranscript = new TranscriptRaw();
-            existingTranscript.setVideoPath("/different/path/video.mp4");
-            existingTranscript.setHash(expectedHash);
-
-            when(transcriptRepository.findByHash(expectedHash))
-                    .thenReturn(Mono.just(existingTranscript));
-
             final TranscriptRaw savedTranscript = new TranscriptRaw();
             savedTranscript.setId(UUID.randomUUID());
             savedTranscript.setVideoPath(videoPath);
@@ -140,7 +133,7 @@ class TranscriptServiceTest {
                     .expectNext(savedTranscript)
                     .verifyComplete();
 
-            verify(transcriptRepository).findByHash(expectedHash);
+            verify(transcriptRepository, never()).findByHash(any());
             verify(transcriptRepository, times(3)).save(any(TranscriptRaw.class));
         } finally {
             Files.deleteIfExists(tempFile);
@@ -156,57 +149,6 @@ class TranscriptServiceTest {
 
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
-
-            when(transcriptRepository.findByHash(expectedHash))
-                    .thenReturn(Mono.empty());
-
-            final TranscriptRaw savedTranscript = new TranscriptRaw();
-            savedTranscript.setId(UUID.randomUUID());
-            savedTranscript.setVideoPath(videoPath);
-            savedTranscript.setHash(expectedHash);
-            savedTranscript.setStatus(LlmStatus.PENDING);
-
-            final TranscriptRaw completedTranscript = new TranscriptRaw();
-            completedTranscript.setId(savedTranscript.getId());
-            completedTranscript.setVideoPath(videoPath);
-            completedTranscript.setHash(expectedHash);
-            completedTranscript.setStatus(LlmStatus.COMPLETED);
-
-            when(transcriptRepository.save(any(TranscriptRaw.class)))
-                    .thenReturn(Mono.just(savedTranscript))  // PENDING
-                    .thenReturn(Mono.just(completedTranscript)); // later saves
-
-            when(whisperService.transcribeVideo(videoPath))
-                    .thenReturn(Mono.just("transcribed"));
-
-            when(eventStream.publish(any(TranscriptRaw.class)))
-                    .thenReturn(Mono.empty());
-
-            final var result = transcriptService.createTranscript(videoPath);
-
-            StepVerifier.create(result.getInitiation())
-                    .expectNext(savedTranscript)
-                    .verifyComplete();
-
-            verify(transcriptRepository).findByHash(expectedHash);
-            verify(transcriptRepository, times(3)).save(any(TranscriptRaw.class));
-        } finally {
-            Files.deleteIfExists(tempFile);
-        }
-    }
-
-    @Test
-    void createTranscript_shouldProcessTranscriptSuccessfully() throws IOException {
-        // Create a temporary file for testing
-        final Path tempFile = Files.createTempFile("test-video", ".mp4");
-        Files.write(tempFile, "test content".getBytes());
-        final String videoPath = tempFile.toString();
-
-        try {
-            final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
-
-            when(transcriptRepository.findByHash(expectedHash))
-                    .thenReturn(Mono.empty());
 
             // Mock the initial save for PENDING status
             final TranscriptRaw pendingTranscript = new TranscriptRaw();
@@ -293,9 +235,13 @@ class TranscriptServiceTest {
             failedTranscript.setStatus(LlmStatus.FAILED);
 
             when(transcriptRepository.save(any(TranscriptRaw.class)))
-                    .thenReturn(Mono.just(pendingTranscript))  // First save (PENDING)
-                    .thenReturn(Mono.just(processingTranscript))  // Second save (PROCESSING)
-                    .thenReturn(Mono.just(failedTranscript));  // Third save (FAILED)
+                    .thenReturn(Mono.just(pendingTranscript))  // PENDING
+                    .thenReturn(Mono.just(processingTranscript))  // PROCESSING
+                    .thenReturn(Mono.just(failedTranscript));  // FAILED
+
+            final RuntimeException transcriptionError = new RuntimeException("Transcription failed");
+            when(whisperService.transcribeVideo(videoPath))
+                    .thenReturn(Mono.error(transcriptionError));
 
             final var result = transcriptService.createTranscript(videoPath);
 
@@ -303,10 +249,10 @@ class TranscriptServiceTest {
                     .expectNext(pendingTranscript)
                     .verifyComplete();
 
-            verify(whisperService, never()).transcribeVideo(any());
+            verify(whisperService).transcribeVideo(videoPath);
             verify(eventStream, never()).publish(any());
 
-            verify(transcriptRepository, times(2)).save(any(TranscriptRaw.class));
+            verify(transcriptRepository, times(3)).save(any(TranscriptRaw.class));
         } finally {
             Files.deleteIfExists(tempFile);
         }
@@ -342,9 +288,14 @@ class TranscriptServiceTest {
 
             final RuntimeException saveError = new RuntimeException("Completed save failed");
             when(transcriptRepository.save(any(TranscriptRaw.class)))
-                    .thenReturn(Mono.just(pendingTranscript))  // First save (PENDING)
-                    .thenReturn(Mono.just(processingTranscript))  // Second save (PROCESSING)
-                    .thenReturn(Mono.error(saveError));  // Third save (COMPLETED) fails
+                    .thenReturn(Mono.just(pendingTranscript))  // PENDING
+                    .thenReturn(Mono.just(processingTranscript))  // PROCESSING
+                    .thenReturn(Mono.error(saveError))  // COMPLETED fails -> triggers onError -> FAILED save
+                    .thenReturn(Mono.just(pendingTranscript)); // FAILED
+
+            final RuntimeException transcriptionError = new RuntimeException("Transcription failed");
+            when(whisperService.transcribeVideo(videoPath))
+                    .thenReturn(Mono.error(transcriptionError));
 
             final var result = transcriptService.createTranscript(videoPath);
 
@@ -352,7 +303,7 @@ class TranscriptServiceTest {
                     .expectNext(pendingTranscript)
                     .verifyComplete();
 
-            verify(whisperService, never()).transcribeVideo(any());
+            verify(whisperService).transcribeVideo(videoPath);
             verify(eventStream, never()).publish(any());
 
             verify(transcriptRepository, times(3)).save(any(TranscriptRaw.class));
@@ -391,9 +342,13 @@ class TranscriptServiceTest {
 
             final RuntimeException saveError = new RuntimeException("Failed save failed");
             when(transcriptRepository.save(any(TranscriptRaw.class)))
-                    .thenReturn(Mono.just(pendingTranscript))  // First save (PENDING)
-                    .thenReturn(Mono.just(processingTranscript))  // Second save (PROCESSING)
-                    .thenReturn(Mono.error(saveError));  // Third save (FAILED) fails
+                    .thenReturn(Mono.just(pendingTranscript))  // PENDING
+                    .thenReturn(Mono.just(processingTranscript))  // PROCESSING
+                    .thenReturn(Mono.error(saveError));  // FAILED fails (no extra save)
+
+            final RuntimeException transcriptionError = new RuntimeException("Transcription failed");
+            when(whisperService.transcribeVideo(videoPath))
+                    .thenReturn(Mono.error(transcriptionError));
 
             final var result = transcriptService.createTranscript(videoPath);
 
@@ -401,10 +356,10 @@ class TranscriptServiceTest {
                     .expectNext(pendingTranscript)
                     .verifyComplete();
 
-            verify(whisperService, never()).transcribeVideo(any());
+            verify(whisperService).transcribeVideo(videoPath);
             verify(eventStream, never()).publish(any());
 
-            verify(transcriptRepository, times(2)).save(any(TranscriptRaw.class));
+            verify(transcriptRepository, times(3)).save(any(TranscriptRaw.class));
         } finally {
             Files.deleteIfExists(tempFile);
         }
