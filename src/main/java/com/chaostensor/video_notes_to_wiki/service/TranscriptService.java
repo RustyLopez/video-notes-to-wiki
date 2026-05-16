@@ -66,6 +66,7 @@ public class TranscriptService {
             .onErrorResume(throwable -> {
                 if ("org.springframework.dao.DuplicateKeyException".equals(throwable.getClass().getName()) ||
                     "io.r2dbc.postgresql.ExceptionFactory$PostgresqlDataIntegrityViolationException".equals(throwable.getClass().getName())) {
+                    logger.warn("Duplicate key conflict for hash {}, attempting recovery", hash, throwable);
                     return transcriptRepository.findByHash(hash)
                         .flatMap(existing -> {
                             if (existing.getStatus() == LlmStatus.FAILED) {
