@@ -70,8 +70,6 @@ class TranscriptServiceTest {
             existingTranscript.setVideoPath(videoPath);
             existingTranscript.setHash(expectedHash);
 
-            when(transcriptRepository.findByVideoPathAndHash(any(), any()))
-                    .thenReturn(Mono.just(existingTranscript));
             when(transcriptRepository.findByHash(any()))
                     .thenReturn(Mono.empty());
 
@@ -80,7 +78,6 @@ class TranscriptServiceTest {
             StepVerifier.create(result.getInitiation())
                     .expectComplete();
 
-            verify(transcriptRepository).findByVideoPathAndHash(videoPath, expectedHash);
             verifyNoMoreInteractions(transcriptRepository);
         } finally {
             Files.deleteIfExists(tempFile);
@@ -100,8 +97,6 @@ class TranscriptServiceTest {
             existingTranscript.setVideoPath("/different/path/video.mp4");
             existingTranscript.setHash(expectedHash);
 
-            when(transcriptRepository.findByVideoPathAndHash(videoPath, expectedHash))
-                    .thenReturn(Mono.empty());
             when(transcriptRepository.findByHash(expectedHash))
                     .thenReturn(Mono.just(existingTranscript));
 
@@ -120,7 +115,6 @@ class TranscriptServiceTest {
                     .expectNext(savedTranscript)
                     .verifyComplete();
 
-            verify(transcriptRepository).findByVideoPathAndHash(videoPath, expectedHash);
             verify(transcriptRepository).findByHash(expectedHash);
             verify(transcriptRepository, times(2)).save(any(TranscriptRaw.class));
         } finally {
@@ -138,8 +132,6 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-            when(transcriptRepository.findByVideoPathAndHash(videoPath, expectedHash))
-                    .thenReturn(Mono.empty());
             when(transcriptRepository.findByHash(expectedHash))
                     .thenReturn(Mono.empty());
 
@@ -158,7 +150,6 @@ class TranscriptServiceTest {
                     .expectNext(savedTranscript)
                     .verifyComplete();
 
-            verify(transcriptRepository).findByVideoPathAndHash(videoPath, expectedHash);
             verify(transcriptRepository).findByHash(expectedHash);
             verify(transcriptRepository, times(2)).save(any(TranscriptRaw.class));
         } finally {
@@ -176,8 +167,6 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-            when(transcriptRepository.findByVideoPathAndHash(videoPath, expectedHash))
-                    .thenReturn(Mono.empty());
             when(transcriptRepository.findByHash(expectedHash))
                     .thenReturn(Mono.empty());
 
@@ -241,8 +230,6 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-            when(transcriptRepository.findByVideoPathAndHash(videoPath, expectedHash))
-                    .thenReturn(Mono.empty());
             when(transcriptRepository.findByHash(expectedHash))
                     .thenReturn(Mono.empty());
 
@@ -303,8 +290,6 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-            when(transcriptRepository.findByVideoPathAndHash(videoPath, expectedHash))
-                    .thenReturn(Mono.empty());
             when(transcriptRepository.findByHash(expectedHash))
                     .thenReturn(Mono.empty());
 
@@ -318,7 +303,6 @@ class TranscriptServiceTest {
                     .expectError(RuntimeException.class)
                     .verify();
 
-            verify(transcriptRepository).findByVideoPathAndHash(videoPath, expectedHash);
             verify(transcriptRepository).findByHash(expectedHash);
             verify(transcriptRepository).save(any(TranscriptRaw.class));
             verifyNoMoreInteractions(transcriptRepository, whisperService, eventStream);
@@ -337,8 +321,7 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-            when(transcriptRepository.findByVideoPathAndHash(videoPath, expectedHash))
-                    .thenReturn(Mono.empty());
+
             when(transcriptRepository.findByHash(expectedHash))
                     .thenReturn(Mono.empty());
 
@@ -381,8 +364,7 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-            when(transcriptRepository.findByVideoPathAndHash(videoPath, expectedHash))
-                    .thenReturn(Mono.empty());
+
             when(transcriptRepository.findByHash(expectedHash))
                     .thenReturn(Mono.empty());
 
@@ -437,8 +419,7 @@ class TranscriptServiceTest {
         try {
             final String expectedHash = "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72";
 
-            when(transcriptRepository.findByVideoPathAndHash(videoPath, expectedHash))
-                    .thenReturn(Mono.empty());
+
             when(transcriptRepository.findByHash(expectedHash))
                     .thenReturn(Mono.empty());
 

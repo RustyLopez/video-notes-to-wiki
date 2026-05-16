@@ -47,22 +47,7 @@ public class TranscriptService {
                 .completion(Mono.error(e))
                 .build();
         }
-
-        final Mono<TranscriptRaw> initiation = transcriptRepository.findByVideoPathAndHash(videoPath, hash).flatMap(existing -> {
-            logger.warn("Video at path {} with hash {} is a duplicate. Not transcribing. If this is not a duplicate, please rename the file.", videoPath, hash);
-            return Mono.<TranscriptRaw>empty();
-        }).switchIfEmpty(transcriptRepository.findByHash(hash).flatMap(existing -> {
-            logger.warn("Video with hash {} already exists at different path {}. Proceeding with transcription.", hash, existing.getVideoPath());
-            return createNewTranscript(videoPath, hash).getInitiation();
-        }).switchIfEmpty(Mono.defer(() -> createNewTranscript(videoPath, hash).getInitiation())));
-        final Mono<TranscriptRaw> completion = transcriptRepository.findByVideoPathAndHash(videoPath, hash).flatMap(existing -> {
-            logger.warn("Video at path {} with hash {} is a duplicate. Not transcribing. If this is not a duplicate, please rename the file.", videoPath, hash);
-            return Mono.<TranscriptRaw>empty();
-        }).switchIfEmpty(transcriptRepository.findByHash(hash).flatMap(existing -> {
-            logger.warn("Video with hash {} already exists at different path {}. Proceeding with transcription.", hash, existing.getVideoPath());
-            return createNewTranscript(videoPath, hash).getCompletion();
-        }).switchIfEmpty(Mono.defer(() -> createNewTranscript(videoPath, hash).getCompletion())));
-        return TranscriptCreationResult.builder().initiation(initiation).completion(completion).build();
+        return createNewTranscript(videoPath, hash);
     }
 
     private TranscriptCreationResult createNewTranscript(final String videoPath, final String hash) {

@@ -9,8 +9,6 @@ import java.util.UUID;
 @Repository
 public interface TranscriptRepository extends ReactiveCrudRepository<TranscriptRaw, UUID> {
 
-    Mono<TranscriptRaw> findByVideoPathAndHash(String videoPath, String hash);
-
     Mono<TranscriptRaw> findByHash(String hash);
 
     Mono<TranscriptRaw> findByVideoPath(String videoPath);
