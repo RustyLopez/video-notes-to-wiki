@@ -6,6 +6,8 @@ import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.CompletedSta
 import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.FailedStatus;
 import com.chaostensor.video_notes_to_wiki.todowhisperwrapperclient.PendingStatus;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class WhisperService {
+
+    private static final Logger logger = LoggerFactory.getLogger(WhisperService.class);
 
     private final WebClient webClient;
 
@@ -53,8 +57,7 @@ public class WhisperService {
             .flatMap(response -> {
                 final String jobId = response.getJobId();
                 return pollForResult(jobId);
-            })
-            .onErrorResume(e -> Mono.just("Error transcribing " + fileName + ": " + e.getMessage()));
+            });
     }
 
     private Mono<String> pollForResult(final String jobId) {
@@ -75,6 +78,9 @@ public class WhisperService {
             .timeout(java.time.Duration.ofMinutes(30)) // timeout after 30 minutes TODO: make this configurable or.. even discoverable .. or inferrable.  It can be pretty long...
                 // k we need a much longer backoff here if we are going to actually wait 30 minutes.
                 // TODO these two configurations are kind of interdependent, maybe derive the timeout from teh backoff or vice versa.
-            .retryWhen(Retry.backoff(30, java.time.Duration.ofSeconds(60))); // retry on error
+                // todo should base off video length but we dont have ffmpeg
+                //  HOWEVER the server has to do an estimation to set timeouts, and could return that
+            .retryWhen(Retry.fixedDelay(60, java.time.Duration.ofSeconds(30))
+                .doBeforeRetry(signal -> logger.warn("Retrying poll for job {} after failure: {}", jobId, signal.failure().getMessage()))); // retry on error
     }
 }

@@ -19,9 +19,10 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     default-schema: public
+    drop-first: false
   ai:
     ollama:
-      base-url: ${OLLAMA_URL:http://localhost:8080/v1}
+      base-url: ${OLLAMA_URL:http://localhost:11434/v1}
       init:
         chat:
           additional-model: ${app.llm.chat.models.preferred}
@@ -54,7 +55,7 @@ app:
     chat:
       models:
         # spring ai may setup multiple so we need to clarify our preferred.
-        preferred: Qwen/Qwen3.5-9B
+        preferred: tinyllama:1.1b
     embeddings:
       models:
         # spring ai may setup multiple so we need to clarify our preferred.
@@ -70,4 +71,13 @@ spring:
   config:
     activate:
       on-profile: test
+  liquibase:
+    drop-first: true
 app:
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  liquibase:
+    drop-first: false

@@ -87,10 +87,7 @@ public class KnowledgeBaseController {
                 .retrieve()
                 .bodyToMono(LLMResponse.class)
                 .map(LLMResponse::getResult)
-                .onErrorResume(e -> {
-                    log.error("Error calling LLM", e);
-                    return Mono.error(e);
-                });
+                .doOnError(e -> log.error("Error calling LLM", e));
     }
 
     private ResolvedIds resolveDocumentsToIds(final List<Document> documents) {

@@ -1,11 +1,17 @@
 package com.chaostensor.video_notes_to_wiki;
 
+import com.chaostensor.video_notes_to_wiki.config.OllamaTestContainersDefaultConfig;
+import liquibase.integration.spring.SpringLiquibase;
+import org.springframework.ai.ollama.api.OllamaModel;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.junit.jupiter.Container;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -16,7 +22,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @SpringBootTest
-@ActiveProfiles(profiles = "test")
+@Import(OllamaTestContainersDefaultConfig.class)
+@ActiveProfiles("test")
 class VideoNotesToWikiApplicationTests {
 
 	@Container
@@ -24,9 +31,6 @@ class VideoNotesToWikiApplicationTests {
 			.withDatabaseName("testdb")
 			.withUsername("test")
 			.withPassword("test");
-
-	@Container
-	static OllamaContainer ollama = new OllamaContainer("ollama/ollama:latest");
 
 	@DynamicPropertySource
 	static void registerProperties(final DynamicPropertyRegistry registry) {
@@ -38,13 +42,7 @@ class VideoNotesToWikiApplicationTests {
 		registry.add("spring.datasource.username", postgresWithVector::getUsername);
 		registry.add("spring.datasource.password", postgresWithVector::getPassword);
 		registry.add("spring.datasource.driver-class-name", ()->"org.postgresql.Driver");
-
-		registry.add("spring.ai.ollama.base-url", ollama::getEndpoint);
-		registry.add("spring.ai.ollama.init.pull-model-strategy", () -> "never");
 	}
-
-	@Autowired
-	private DatabaseClient databaseClient;
 
 
 	@Test

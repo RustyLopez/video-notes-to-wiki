@@ -1,6 +1,8 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbedding;
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import com.chaostensor.video_notes_to_wiki.entity.LlmStatus;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
@@ -76,6 +78,8 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
         transcriptWithEmbeddings.setStatus(LlmStatus.PENDING);
         transcriptWithEmbeddings.setCreatedAt(LocalDateTime.now());
         transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
+        // todo make this nullable
+        transcriptWithEmbeddings.setChunkEmbeddings(ChunkEmbeddingList.builder().build());
 
         return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings)
                 .doOnNext(saved -> {
@@ -100,7 +104,7 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
         return transcriptRepository.findById(transcriptWithEmbeddings.getTranscriptRawId())
                 .flatMap(transcriptRaw -> {
                     try {
-                        final String transcriptContent = transcriptRaw.getTranscript();
+                        final String transcriptContent = transcriptRaw.getTranscriptRaw();
                         if (transcriptContent == null) {
                             transcriptWithEmbeddings.setStatus(LlmStatus.FAILED);
                             return transcriptWithEmbeddingsRepository.save(transcriptWithEmbeddings);
@@ -147,11 +151,11 @@ public class EventHandlerTranscriptRawToTranscriptWithEmbeddings implements Even
 
                         // Generate embeddings for chunks (keep for db storage)
                         final List<float[]> embeddings = embeddingService.embed(chunks);
-                        final List<TranscriptWithEmbeddings.ChunkEmbedding> chunkEmbeddings = IntStream.range(0, chunks.size())
-                                .mapToObj(i -> new TranscriptWithEmbeddings.ChunkEmbedding(chunks.get(i), embeddings.get(i)))
+                        final List<ChunkEmbedding> chunkEmbeddings = IntStream.range(0, chunks.size())
+                                .mapToObj(i -> new ChunkEmbedding(chunks.get(i), embeddings.get(i)))
                                 .toList();
 
-                        transcriptWithEmbeddings.setChunkEmbeddings(chunkEmbeddings);
+                        transcriptWithEmbeddings.setChunkEmbeddings(ChunkEmbeddingList.of(chunkEmbeddings));
                         transcriptWithEmbeddings.setStatus(LlmStatus.COMPLETED);
                         transcriptWithEmbeddings.setUpdatedAt(LocalDateTime.now());
 

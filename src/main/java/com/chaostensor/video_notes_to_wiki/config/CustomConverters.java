@@ -1,6 +1,7 @@
 package com.chaostensor.video_notes_to_wiki.config;
 
 
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptRaw;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
@@ -15,6 +16,7 @@ import org.springframework.data.r2dbc.mapping.event.BeforeConvertCallback;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,6 +27,8 @@ public class CustomConverters {
     @Bean
     public R2dbcCustomConversions customConversions(final JsonMapper jsonMapper) {
         final List<Converter<?, ?>> converters = new ArrayList<>();
+        converters.add(new ChunkEmbeddingListReadingConverter(jsonMapper));
+        converters.add(new ChunkEmbeddingListWritingConverter(jsonMapper));
         return R2dbcCustomConversions.of(PostgresDialect.INSTANCE, converters);
     }
 
@@ -49,7 +53,9 @@ public class CustomConverters {
         return (entity, table) -> {
             if (entity.getId() == null) {
                 entity.setId(UuidCreator.getTimeOrderedEpoch());
+                entity.setCreatedAt(LocalDateTime.now());
             }
+            entity.setUpdatedAt(LocalDateTime.now());
             return Mono.just(entity);
         };
     }
@@ -58,7 +64,9 @@ public class CustomConverters {
         return (entity, table) -> {
             if (entity.getId() == null) {
                 entity.setId(UuidCreator.getTimeOrderedEpoch());
+                entity.setCreatedAt(LocalDateTime.now());
             }
+            entity.setUpdatedAt(LocalDateTime.now());
             return Mono.just(entity);
         };
     }
@@ -67,7 +75,9 @@ public class CustomConverters {
         return (entity, table) -> {
             if (entity.getId() == null) {
                 entity.setId(UuidCreator.getTimeOrderedEpoch());
+                entity.setCreatedAt(LocalDateTime.now());
             }
+            entity.setUpdatedAt(LocalDateTime.now());
             return Mono.just(entity);
         };
     }
@@ -77,7 +87,9 @@ public class CustomConverters {
         return (entity, table) -> {
             if (entity.getId() == null) {
                 entity.setId(UuidCreator.getTimeOrderedEpoch());
+                entity.setCreatedAt(LocalDateTime.now());
             }
+            entity.setUpdatedAt(LocalDateTime.now());
             return Mono.just(entity);
         };
     }

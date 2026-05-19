@@ -8,6 +8,7 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -25,7 +26,10 @@ public class TranscriptsHierarchicalRollup {
     private String compressedResult;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private ImmutableList<TranscriptWithEmbeddings.ChunkEmbedding> chunksWithEmbeddings;
+    private ChunkEmbeddingList chunksWithEmbeddings;
 
+    public ImmutableList<ChunkEmbedding> getChunksWithEmbeddings() {
+        return chunksWithEmbeddings != null && chunksWithEmbeddings.getItems() != null ? ImmutableList.copyOf(chunksWithEmbeddings.getItems()) : ImmutableList.of();
+    }
 
 }

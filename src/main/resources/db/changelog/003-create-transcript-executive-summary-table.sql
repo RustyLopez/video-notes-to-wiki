@@ -8,3 +8,5 @@ CREATE TABLE transcript_executive_summary (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+
+--rollback DROP TABLE transcript_executive_summary CASCADE;

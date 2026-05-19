@@ -108,6 +108,28 @@
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-model-ollama</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>ollama</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- not currently resolving from maven, but would be ideal for helping to ensure models are not double polled. FOr now we'll bind the ollama cache -->
+<!--		<dependency>-->
+<!--			<groupId>io.flowinquiry</groupId>-->
+<!--			<artifactId>spring-testcontainers-ollama</artifactId>-->
+<!--			<version>0.9.3</version>-->
+<!--			<scope>test</scope>-->
+<!--		</dependency>-->
 <!--		<dependency>-->
 <!--			<groupId>org.springframework.ai</groupId>-->
 <!--			<artifactId>spring-ai-starter-model-postgresml-embedding</artifactId>-->

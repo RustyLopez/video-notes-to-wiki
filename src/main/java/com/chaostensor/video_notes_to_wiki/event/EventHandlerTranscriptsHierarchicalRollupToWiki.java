@@ -138,12 +138,11 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 .doOnNext(saved -> logger.info("Saved and published WikiResult id: {} triggered by compressed transcripts: {}", saved.getId(), transcriptsHierarchicalRollup.getId()))
                 .flatMap(saved -> processWikiPostProcessing(saved).thenReturn(saved))
                 .then()
-                .onErrorResume(e -> {
+                .doOnError(e -> {
                     logger.error("Error processing CompressedTranscripts event", e);
                     for (final StackTraceElement element : e.getStackTrace()) {
                         logger.error(element.toString());
                     }
-                    return Mono.empty();
                 });
     }
 
@@ -219,12 +218,11 @@ public class EventHandlerTranscriptsHierarchicalRollupToWiki implements EventHan
                 .retrieve()
                 .bodyToMono(LLMResponse.class)
                 .map(LLMResponse::getResult)
-                .onErrorResume(e -> {
+                .doOnError(e -> {
                     logger.error("Error calling LLM for synthesis", e);
                     for (final StackTraceElement element : e.getStackTrace()) {
                         logger.error(element.toString());
                     }
-                    return Mono.error(e);
                 });
     }
 }

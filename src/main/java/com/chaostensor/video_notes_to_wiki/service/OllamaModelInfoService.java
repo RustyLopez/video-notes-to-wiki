@@ -51,7 +51,7 @@ public class OllamaModelInfoService {
                             log.info("Retrieved context window tokens for model {}: {}", preferredChatModel, this.contextWindowTokens);
                             return;
                         } catch (final NumberFormatException e) {
-                            log.warn("Failed to parse context_length: {}", contextLengthStr);
+                            log.warn("Failed to parse context_length: {}", contextLengthStr, e);
                         }
                     }
                 }

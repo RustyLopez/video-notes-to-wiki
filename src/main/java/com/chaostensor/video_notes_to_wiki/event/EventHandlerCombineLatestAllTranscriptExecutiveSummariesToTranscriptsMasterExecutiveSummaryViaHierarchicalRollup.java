@@ -1,8 +1,9 @@
 package com.chaostensor.video_notes_to_wiki.event;
 
 import com.chaostensor.video_notes_to_wiki.config.LlmConfig;
+import com.chaostensor.video_notes_to_wiki.entity.ChunkEmbedding;
+import com.chaostensor.video_notes_to_wiki.dto.ChunkEmbeddingList;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptExecutiveSummary;
-import com.chaostensor.video_notes_to_wiki.entity.TranscriptWithEmbeddings;
 import com.chaostensor.video_notes_to_wiki.entity.TranscriptsHierarchicalRollup;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMRequest;
 import com.chaostensor.video_notes_to_wiki.llmclient.LLMResponse;
@@ -109,8 +110,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         return Mono.just(event)
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(this::performHierarchicalRollup)
-                .doOnError(error -> log.error("Error processing rollup for id: {}", event.getId(), error))
-                .onErrorResume(e -> Mono.empty());
+                .doOnError(error -> log.error("Error processing rollup for id: {}", event.getId(), error));
     }
 
     private Mono<Void> performHierarchicalRollup(final TranscriptExecutiveSummary triggerEvent) {
@@ -221,10 +221,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 + "\n\nLayer 1 summaries:\n" + combinedInput;
 
         return callLLM(prompt)
-                .onErrorResume(e -> {
-                    log.error("Failed to summarize chunk at layer {}", layerNumber, e);
-                    return Mono.error(new RuntimeException("LLM summarization failed", e));
-                });
+                .doOnError(e -> log.error("Failed to summarize chunk at layer {}", layerNumber, e));
     }
 
     private Mono<String> callLLM(final String prompt) {
@@ -236,10 +233,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                 .retrieve()
                 .bodyToMono(LLMResponse.class)
                 .map(LLMResponse::getResult)
-                .onErrorResume(e -> {
-                    log.error("Error calling LLM", e);
-                    return Mono.error(e);
-                });
+                .doOnError(e -> log.error("Error calling LLM", e));
     }
 
     private Mono<TranscriptsHierarchicalRollup> saveAndPublishRollup(final String summary) {
@@ -249,7 +243,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
             rollup.setCompressedResult(summary);
             rollup.setCreatedAt(LocalDateTime.now());
             rollup.setUpdatedAt(LocalDateTime.now());
-            rollup.setChunksWithEmbeddings(chunkEmbeddings);
+            rollup.setChunksWithEmbeddings(ChunkEmbeddingList.of(chunkEmbeddings));
 
             return transcriptsHierarchicalRollupRepository.save(rollup)
                     .flatMap(saved -> compressedTranscriptsEventStream.publish(saved).thenReturn(saved))
@@ -279,7 +273,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
         return Mono.just(saved);
     }
 
-    private Mono<ImmutableList<TranscriptWithEmbeddings.ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
+    private Mono<ImmutableList<ChunkEmbedding>> chunkOutputAndGenerateEmbeddings(final String summary) {
         return Mono.fromCallable(() -> chunkByBulletPointsSectionHeadersAndDoubleNewlines(summary))
                 .flatMap(chunks -> {
                     if (chunks.isEmpty()) {
@@ -292,7 +286,7 @@ public class EventHandlerCombineLatestAllTranscriptExecutiveSummariesToTranscrip
                                             .flatMapMany(Flux::fromIterable)
                             )
                             .map(tuple -> {
-                                return new TranscriptWithEmbeddings.ChunkEmbedding(tuple.getT1(), tuple.getT2());
+                                return new ChunkEmbedding(tuple.getT1(), tuple.getT2());
                             })
                             .collectList()
                             .map(ImmutableList::copyOf);
